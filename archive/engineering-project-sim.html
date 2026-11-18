@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Riverside Bridge Replacement — Project Delivery Simulator</title>
+<style>
+  :root{
+    --bg:#070c15;
+    --panel:#0e1726;
+    --panel-2:#111c2e;
+    --line:#1d2b42;
+    --line-soft:#16233a;
+    --text:#e6edf7;
+    --muted:#8ca0bd;
+    --accent:#38bdf8;
+    --accent-deep:#0ea5e9;
+    --good:#34d399;
+    --warn:#fbbf24;
+    --bad:#f87171;
+    --violet:#a78bfa;
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%}
+  body{
+    background:
+      radial-gradient(1200px 620px at 82% -12%, rgba(56,189,248,.11), transparent 62%),
+      radial-gradient(900px 520px at -12% 18%, rgba(167,139,250,.08), transparent 60%),
+      var(--bg);
+    color:var(--text);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font:inherit}
+  .app{max-width:1440px;margin:0 auto;padding:22px 22px 34px}
+  .muted{color:var(--muted);font-size:12px}
+
+  /* ---------- header ---------- */
+  header{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;margin-bottom:16px}
+  .brand{display:flex;gap:13px;align-items:center;min-width:0}
+  .logo{
+    width:44px;height:44px;flex:none;border-radius:13px;display:grid;place-items:center;
+    background:linear-gradient(140deg, rgba(56,189,248,.28), rgba(14,165,233,.04));
+    border:1px solid rgba(56,189,248,.38);color:var(--accent);
+    box-shadow:0 0 24px rgba(56,189,248,.16) inset;
+  }
+  .brand h1{font-size:19px;margin:0;letter-spacing:.2px;line-height:1.15}
+  .brand .sub{margin:3px 0 0;font-size:11.5px;color:var(--muted);letter-spacing:.4px;text-transform:uppercase}
+  .header-actions{display:flex;gap:8px}
+  .ghost{
+    background:#0d1726;border:1px solid var(--line);color:var(--muted);
+    padding:8px 13px;border-radius:9px;cursor:pointer;font-size:12.5px;transition:.15s;
+  }
+  .ghost:hover{color:var(--text);border-color:#2a4a70;background:#101d30}
+
+  /* ---------- stats ---------- */
+  .stats{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+  .stat{
+    flex:1 1 150px;min-width:140px;background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    border:1px solid var(--line);border-radius:12px;padding:11px 14px 12px;
+  }
+  .stat.wide{flex:1.6 1 220px}
+  .stat-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);display:flex;justify-content:space-between;gap:8px}
+  .stat-value{font-size:22px;font-weight:700;letter-spacing:.2px;margin-top:4px;display:flex;align-items:baseline;gap:7px}
+  .stat-sub{font-size:11.5px;color:var(--muted);font-weight:400;letter-spacing:0}
+  .stat .bad{color:var(--bad);font-size:10.5px;text-transform:none;letter-spacing:0}
+  .stat .ok{color:var(--good);font-size:10.5px;text-transform:none;letter-spacing:0}
+  .stat .bar{margin-top:8px;height:5px}
+  .bar{height:6px;background:#08101c;border-radius:99px;overflow:hidden;border:1px solid var(--line-soft)}
+  .bar .fill{height:100%;background:linear-gradient(90deg,var(--accent-deep),var(--accent));border-radius:99px;transition:width .45s ease}
+  .bar.quality .fill{background:linear-gradient(90deg,#10b981,var(--good))}
+  .bar.over .fill{background:linear-gradient(90deg,#f59e0b,var(--bad))}
+
+  /* ---------- layout ---------- */
+  main{display:grid;grid-template-columns:minmax(0,1fr) 348px;gap:16px;align-items:start}
+  aside{display:flex;flex-direction:column;gap:14px}
+  .panel{
+    background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    border:1px solid var(--line);border-radius:var(--radius);padding:14px;
+  }
+  .panel-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:12px}
+  .panel-head h2{font-size:12.5px;text-transform:uppercase;letter-spacing:.9px;color:var(--muted);margin:0;font-weight:600}
+  .board{display:grid;grid-template-columns:repeat(auto-fill,minmax(272px,1fr));gap:12px;align-items:start}
+  .phase{min-width:0}
+  .phase-title{
+    display:flex;justify-content:space-between;align-items:center;
+    font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--accent);
+    margin:2px 0 8px;font-weight:600;
+  }
+  .phase-title span{color:var(--muted);font-weight:400;letter-spacing:0}
+
+  /* ---------- task cards ---------- */
+  .task{
+    position:relative;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:12px 13px 11px 15px;margin-bottom:9px;overflow:hidden;
+    transition:border-color .15s, background .15s;
+  }
+  .task::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--line)}
+  .task.active::before{background:var(--accent);box-shadow:0 0 14px rgba(56,189,248,.5)}
+  .task.ready::before{background:var(--violet)}
+  .task.done::before{background:var(--good)}
+  .task.locked{opacity:.55}
+  .task.done{opacity:.82}
+  .task:hover{border-color:#27405f}
+  .task-top{display:flex;align-items:center;gap:7px}
+  .task-top h4{font-size:13.5px;margin:0;font-weight:600;line-height:1.3;flex:1}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--line);flex:none}
+  .task.active .dot{background:var(--accent);animation:pulse 1.6s infinite}
+  .task.ready .dot{background:var(--violet)}
+  .task.done .dot{background:var(--good)}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(56,189,248,.5)}50%{box-shadow:0 0 0 5px rgba(56,189,248,0)}}
+  .badge{font-size:9.5px;letter-spacing:.7px;padding:3px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted);flex:none;font-weight:600}
+  .badge.active{color:#bae6fd;border-color:rgba(56,189,248,.45);background:rgba(56,189,248,.1)}
+  .badge.ready{color:#ddd6fe;border-color:rgba(167,139,250,.45);background:rgba(167,139,250,.1)}
+  .badge.done{color:#bbf7d0;border-color:rgba(52,211,153,.45);background:rgba(52,211,153,.1)}
+  .desc{font-size:11.5px;line-height:1.45;color:#7d90ac;margin:7px 0 6px}
+  .task-meta{font-size:11px;color:var(--muted);margin-bottom:9px}
+  .task-meta .mat{color:#fcd34d}
+  .progress-text{font-size:10.5px;color:var(--muted);margin-top:5px}
+  .task-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:9px;min-height:32px}
+  .stepper{display:flex;align-items:center;gap:2px;background:#08101c;border:1px solid var(--line-soft);border-radius:9px;padding:2px}
+  .step{
+    width:26px;height:26px;border:0;border-radius:7px;background:#16233a;color:var(--text);
+    font-size:16px;line-height:1;cursor:pointer;transition:.12s;
+  }
+  .step:hover:not(:disabled){background:#1f3a5c}
+  .step:active:not(:disabled){transform:scale(.92)}
+  .step:disabled{opacity:.28;cursor:not-allowed}
+  .count-wrap{min-width:56px;text-align:center;font-size:11px;color:var(--muted)}
+  .count{font-weight:700;font-size:14px;color:var(--text)}
+  .unit{margin-left:2px}
+  .free{font-size:10.5px;color:var(--muted)}
+  .deps{font-size:10.5px;color:var(--muted);line-height:1.4}
+  .done-note{font-size:10.5px;color:var(--good)}
+  .task.ready .free{color:var(--violet)}
+
+  /* ---------- sidebar ---------- */
+  .staff-row{display:flex;align-items:center;gap:9px;padding:7px 0;border-top:1px solid var(--line-soft);font-size:12px}
+  .staff-row:first-child{border-top:0;padding-top:0}
+  .staff-name{flex:1;color:#c6d4e8}
+  .staff-cost{color:var(--muted);font-size:11px}
+  .pips{display:flex;gap:3px}
+  .pip{width:8px;height:8px;border-radius:50%;background:#1b2a41;border:1px solid #24395a;display:block}
+  .pip.on{background:var(--accent);border-color:var(--accent);box-shadow:0 0 6px rgba(56,189,248,.55)}
+  .chart{width:100%;height:92px;display:block;margin-bottom:4px}
+  .chart-legend{display:flex;gap:14px;font-size:10.5px;color:var(--muted)}
+  .sw{display:inline-block;width:12px;height:2px;vertical-align:middle;margin-right:5px}
+  .sw-spend{background:var(--accent)}
+  .sw-budget{background:var(--bad);opacity:.75;border-top:1px dashed var(--bad);height:0}
+  .log{max-height:238px;overflow:auto;display:flex;flex-direction:column;gap:7px;padding-right:2px}
+  .log-item{display:flex;gap:8px;font-size:12px;line-height:1.45;color:#9fb1cb;border-left:2px solid var(--line);padding-left:9px}
+  .log-item .wk{flex:none;color:#61758f;font-size:10.5px;padding-top:1px}
+  .log-item.good{color:#bbf7d0;border-color:var(--good)}
+  .log-item.warn{color:#fde68a;border-color:var(--warn)}
+  .log-item.info{color:#9fb1cb}
+  .empty{font-size:12px;color:var(--muted)}
+
+  /* ---------- advance bar ---------- */
+  .advance-wrap{position:sticky;bottom:0;z-index:20;margin-top:14px;padding:10px 0 4px;background:linear-gradient(180deg,transparent,var(--bg) 55%)}
+  .advance-inner{
+    display:flex;align-items:center;justify-content:flex-end;gap:14px;
+    background:rgba(13,23,38,.86);backdrop-filter:blur(10px);
+    border:1px solid var(--line);border-radius:14px;padding:10px 12px 10px 16px;
+  }
+  .hint{flex:1;font-size:12px;color:var(--warn);line-height:1.4}
+  .btn-main{
+    background:linear-gradient(180deg,#38bdf8,#0ea5e9);color:#04121f;border:0;border-radius:11px;
+    padding:12px 20px;font-weight:700;font-size:14px;cursor:pointer;letter-spacing:.2px;
+    box-shadow:0 8px 24px rgba(14,165,233,.28);transition:.15s;white-space:nowrap;
+  }
+  .btn-main:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 12px 28px rgba(14,165,233,.36)}
+  .btn-main:active:not(:disabled){transform:translateY(0)}
+  .btn-main:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+
+  /* ---------- overlays ---------- */
+  .overlay{
+    position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:20px;overflow:auto;
+    background:rgba(3,7,14,.74);backdrop-filter:blur(7px);
+  }
+  .overlay.hidden{display:none}
+  .dialog{
+    width:min(600px,100%);background:linear-gradient(180deg,#121e30,#0b1422);
+    border:1px solid #24395a;border-radius:18px;padding:26px 26px 22px;
+    box-shadow:0 40px 100px rgba(0,0,0,.55);animation:pop .2s ease;
+  }
+  @keyframes pop{from{transform:translateY(10px) scale(.985);opacity:0}}
+  .kicker{font-size:10.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--accent);margin:0 0 8px;font-weight:600}
+  .dialog h1{font-size:25px;margin:0 0 8px;line-height:1.15}
+  .dialog h2{font-size:20px;margin:0 0 8px;line-height:1.2}
+  .lede{color:#a9bcd6;font-size:14px;line-height:1.6;margin:0 0 18px}
+  .targets{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px}
+  .targets div{background:#0b1626;border:1px solid var(--line);border-radius:11px;padding:11px 12px;text-align:center}
+  .targets b{display:block;font-size:20px;color:var(--text)}
+  .targets span{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .rules{margin:0 0 20px;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
+  .rules li{font-size:12.8px;line-height:1.5;color:#a9bcd6;padding-left:20px;position:relative}
+  .rules li::before{content:"";position:absolute;left:4px;top:7px;width:6px;height:6px;border-radius:2px;background:var(--accent);opacity:.7}
+  .rules b{color:var(--text);font-weight:600}
+  .fineprint{font-size:10.5px;color:#5e7290;text-align:center;margin:12px 0 0}
+  .intro .btn-main{width:100%}
+
+  /* event dialog */
+  .event .event-text{font-size:13.5px;line-height:1.6;color:#a9bcd6;margin:0 0 18px}
+  .choices{display:flex;flex-direction:column;gap:9px}
+  .choice{
+    width:100%;text-align:left;background:#0d1929;border:1px solid var(--line);border-radius:12px;
+    padding:12px 14px;color:var(--text);cursor:pointer;display:flex;flex-direction:column;gap:6px;
+    transition:.15s;
+  }
+  .choice:hover{border-color:var(--accent);background:#122238;transform:translateY(-1px)}
+  .choice b{font-size:13px;font-weight:600}
+  .fx{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{font-size:10.5px;padding:2px 8px;border-radius:999px;background:#152238;color:var(--muted);border:1px solid #22344f}
+  .chip.cost{color:#fca5a5;border-color:rgba(248,113,113,.35)}
+  .chip.save{color:#86efac;border-color:rgba(52,211,153,.35)}
+  .chip.time{color:#fcd34d;border-color:rgba(251,191,36,.35)}
+  .chip.q{color:#a5b4fc;border-color:rgba(167,139,250,.35)}
+
+  /* end screen */
+  .end{text-align:center}
+  .end .kicker{color:var(--muted)}
+  .grade{
+    width:92px;height:92px;border-radius:50%;display:grid;place-items:center;
+    font-size:40px;font-weight:800;margin:16px auto 12px;border:2px solid var(--line);
+  }
+  .grade-s{color:#fbbf24;border-color:#fbbf24;box-shadow:0 0 40px rgba(251,191,36,.25)}
+  .grade-a{color:var(--good);border-color:var(--good);box-shadow:0 0 32px rgba(52,211,153,.2)}
+  .grade-b{color:var(--accent);border-color:var(--accent)}
+  .grade-c{color:var(--warn);border-color:var(--warn)}
+  .grade-d,.grade-f{color:var(--bad);border-color:var(--bad);box-shadow:0 0 30px rgba(248,113,113,.18)}
+  .verdict{font-size:13.5px;line-height:1.6;color:#a9bcd6;margin:0 0 18px}
+  .score-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;text-align:left}
+  .metric{background:#0b1626;border:1px solid var(--line);border-radius:10px;padding:10px}
+  .metric-label{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+  .metric-value{font-size:15px;font-weight:700;margin:3px 0 7px}
+  .metric .bar{height:4px}
+  .metric-score{font-size:10px;color:var(--muted);margin-top:4px}
+  .total{font-size:13px;color:#a9bcd6;margin-bottom:6px}
+  .total b{font-size:20px;color:var(--text)}
+  .reason{font-size:11.5px;color:var(--muted);margin:0 0 18px}
+  .end .btn-main{width:100%}
+
+  /* ---------- responsive ---------- */
+  @media (max-width:1050px){
+    main{grid-template-columns:1fr}
+    aside{display:grid;grid-template-columns:1fr 1fr}
+    aside .panel:last-child{grid-column:1 / -1}
+  }
+  @media (max-width:680px){
+    .app{padding:14px 12px 26px}
+    aside{grid-template-columns:1fr}
+    .stats .stat{min-width:0;flex:1 1 calc(50% - 10px)}
+    .advance-inner{flex-direction:column;align-items:stretch}
+    .hint{text-align:center}
+    .btn-main{width:100%}
+    .dialog{padding:20px}
+    .score-grid{grid-template-columns:1fr}
+    .targets{grid-template-columns:1fr 1fr 1fr}
+    .targets b{font-size:16px}
+  }
+
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+          <path d="M2 17h20M4 17v-4a8 8 0 0 1 16 0v4M8 17v-3M12 17v-4M16 17v-3"/>
+        </svg>
+      </div>
+      <div>
+        <h1>Riverside Bridge Replacement</h1>
+        <p class="sub">Engineering Program Delivery Simulator</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="ghost" id="briefBtn" type="button">Brief</button>
+      <button class="ghost" id="restartBtn" type="button">Restart</button>
+    </div>
+  </header>
+
+  <div id="stats" class="stats"></div>
+
+  <main>
+    <div class="board-wrap panel">
+      <div class="panel-head">
+        <h2>Work breakdown</h2>
+        <span class="muted" id="taskSummary"></span>
+      </div>
+      <div id="board" class="board"></div>
+    </div>
+
+    <aside>
+      <div class="panel">
+        <div class="panel-head"><h2>Team pool</h2><span class="muted">per week</span></div>
+        <div id="staff"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Spend</h2><span class="muted" id="spendLabel"></span></div>
+        <div id="chart"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Activity log</h2></div>
+        <div id="log" class="log"></div>
+      </div>
+    </aside>
+  </main>
+
+  <div class="advance-wrap">
+    <div class="advance-inner">
+      <div id="hint" class="hint"></div>
+      <button id="advance" class="btn-main" type="button">Start week 1 &#9654;</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="intro">
+  <div class="dialog intro">
+    <p class="kicker">Civil Engineering &middot; Program Delivery</p>
+    <h1>Riverside Bridge Replacement</h1>
+    <p class="lede">You have been appointed project director. Deliver a safe crossing on time and on budget &mdash; without letting quality slip.</p>
+    <div class="targets">
+      <div><b>38</b><span>baseline weeks</span></div>
+      <div><b>$4.00M</b><span>fixed budget</span></div>
+      <div><b>&ge;85</b><span>quality target</span></div>
+    </div>
+    <ul class="rules">
+      <li><b>Staff the work.</b> Assign people to a task with <b>+</b>. More people finish it faster.</li>
+      <li><b>Mind dependencies.</b> A task unlocks only when its prerequisites are delivered; parallel work needs spare staff.</li>
+      <li><b>Watch the money.</b> Payroll runs every week for assigned staff; materials are charged when a task completes.</li>
+      <li><b>Make trade-offs.</b> Crises will hit. Cheap or fast options usually cost quality.</li>
+      <li><b>Know the limits.</b> 15% budget overrun, zero quality, or week 52 ends the project.</li>
+    </ul>
+    <button id="startBtn" class="btn-main" type="button">Start project &#9654;</button>
+    <p class="fineprint">Single-file simulation. Refresh the page to start over.</p>
+  </div>
+</div>
+
+<div class="overlay hidden" id="event"></div>
+<div class="overlay hidden" id="end"></div>
+
+<script>
+'use strict';
+
+/* ============================================================
+   Riverside Bridge Replacement — project delivery simulation
+   ============================================================ */
+
+const BUDGET = 4000000;
+const BASELINE_WEEKS = 38;
+const HARD_LIMIT = 52;
+const QUALITY_TARGET = 85;
+const INFLATION = 1.15;          // overrun tolerance before funding is pulled
+const EVENT_CHANCE = 0.16;
+
+const ROLES = {
+  struct:  { name: 'Structural Engineer', short: 'eng',   cost: 4200, prod: 1.0, pool: 2 },
+  analyst: { name: 'Load Analyst',        short: 'anlst', cost: 4600, prod: 1.1, pool: 1 },
+  qa:      { name: 'QA / Inspector',      short: 'QA',    cost: 3600, prod: 0.9, pool: 1 },
+  crew:    { name: 'Construction Crew',   short: 'crew',  cost: 2600, prod: 0.8, pool: 4 },
+  pm:      { name: 'PM / Procurement',    short: 'PM',    cost: 5000, prod: 0.7, pool: 2 }
+};
+
+const TASKS = [
+  { id:'survey',    name:'Site Survey & Geotech',      role:'struct',  effort:3,  deps:[],                    phase:'Design',   mat:80000,   desc:'Topographic survey, soil borings and a flood study for the new crossing.' },
+  { id:'loads',     name:'Load & Requirements Analysis', role:'analyst', effort:4,  deps:['survey'],            phase:'Design',   mat:0,       desc:'Traffic loads, wind, seismic and the client\u2019s design brief.' },
+  { id:'concept',   name:'Concept Design',             role:'struct',  effort:5,  deps:['loads'],             phase:'Design',   mat:0,       desc:'Options study and selection of the preferred bridge form.' },
+  { id:'detail',    name:'Detailed Design & Drawings', role:'struct',  effort:6,  deps:['concept'],           phase:'Design',   mat:0,       desc:'Member sizing, reinforcement, bearings and construction drawings.' },
+  { id:'review',    name:'Design Review / QA',         role:'qa',      effort:2,  deps:['detail'],            phase:'Design',   mat:0,       desc:'Independent check of the design before it is issued for construction.' },
+  { id:'permit',    name:'Permitting & Approvals',     role:'pm',      effort:3,  deps:['review'],            phase:'Admin',    mat:60000,   desc:'Council approvals, environmental consents and the road closure order.' },
+  { id:'procure',   name:'Procurement',                role:'pm',      effort:2,  deps:['review'],            phase:'Admin',    mat:1200000, desc:'Order structural steel, bearings and precast concrete sections.' },
+  { id:'found',     name:'Foundation Construction',    role:'crew',    effort:8,  deps:['permit','procure'],  phase:'Build',    mat:400000,  desc:'Piling, pile caps and abutments on both banks.' },
+  { id:'pier',      name:'Pier Construction',          role:'crew',    effort:10, deps:['found'],             phase:'Build',    mat:350000,  desc:'Reinforced concrete piers rising from the riverbed.' },
+  { id:'fabricate', name:'Deck Fabrication',           role:'crew',    effort:8,  deps:['procure'],           phase:'Build',    mat:900000,  desc:'Off-site fabrication of the steel deck sections.' },
+  { id:'install',   name:'Deck Installation',          role:'crew',    effort:6,  deps:['pier','fabricate'],  phase:'Build',    mat:150000,  desc:'Crane the deck sections into place and fix the bearings.' },
+  { id:'test',      name:'Load Testing & Inspection',  role:'qa',      effort:2,  deps:['install'],           phase:'Closeout', mat:50000,   desc:'Static and dynamic load testing, plus the final safety inspection.' },
+  { id:'handover',  name:'Handover & Closeout',        role:'pm',      effort:2,  deps:['test'],              phase:'Closeout', mat:0,       desc:'As-built records, snag list, road reopening and client handover.' }
+];
+
+const PHASES = [
+  { key:'Design',   label:'1 \u00b7 Design' },
+  { key:'Admin',    label:'2 \u00b7 Permits & Procurement' },
+  { key:'Build',    label:'3 \u00b7 Construction' },
+  { key:'Closeout', label:'4 \u00b7 Testing & Closeout' }
+];
+
+const EVENTS = [
+  {
+    id:'geotech', when: w => w >= 2 && w <= 12,
+    title:'Geotech surprise',
+    text:'The soil borings reveal a pocket of soft clay under the south abutment. The foundation design assumed competent rock.',
+    choices:[
+      { label:'Deepen the foundation to rock', cost:260000, weeks:2, quality:4 },
+      { label:'Redesign the abutment',         cost:120000, weeks:1, quality:-6 },
+      { label:'Proceed and monitor settlement', cost:0,      weeks:0, quality:-15 }
+    ]
+  },
+  {
+    id:'council', when: w => w >= 5 && w <= 18,
+    title:'Council design review',
+    text:'The council\u2019s design panel asks for extra pedestrian access and lighting before it will approve the scheme.',
+    choices:[
+      { label:'Comply fully',            cost:80000, weeks:3, quality:5 },
+      { label:'Negotiate a reduced scope', cost:30000, weeks:1, quality:0 },
+      { label:'Appeal the request',      cost:0,     weeks:0, quality:-6 }
+    ]
+  },
+  {
+    id:'steel', when: w => w >= 12 && w <= 26,
+    title:'Steel mill backlog',
+    text:'The mill reports a backlog. The critical girders will miss their delivery window.',
+    choices:[
+      { label:'Air-freight the girders',  cost:180000, weeks:0, quality:0 },
+      { label:'Accept a two-week delay',  cost:0,      weeks:2, quality:0 },
+      { label:'Buy from an alternate mill', cost:90000, weeks:0, quality:-8 }
+    ]
+  },
+  {
+    id:'value', when: w => w >= 8,
+    title:'Value-engineering proposal',
+    text:'A supplier proposes a cheaper bearing detail. It saves real money but deviates from the specification.',
+    choices:[
+      { label:'Adopt the cheaper detail', cost:-150000, weeks:0, quality:-10 },
+      { label:'Decline and keep the spec', cost:0,     weeks:0, quality:0 }
+    ]
+  },
+  {
+    id:'labor', when: w => w >= 14,
+    title:'Welders poached',
+    text:'Two certified welders have been poached by a rival contractor mid-project.',
+    choices:[
+      { label:'Match the pay rise',          cost:90000,  weeks:0, quality:2 },
+      { label:'Hire subcontractors',         cost:140000, weeks:0, quality:-4 },
+      { label:'Stretch the existing crew',   cost:0,      weeks:2, quality:-6 }
+    ]
+  },
+  {
+    id:'weather', when: w => w >= 18,
+    title:'Storm front',
+    text:'A storm front is forecast to sit over the site for several days. Lifting operations are unsafe in high winds.',
+    choices:[
+      { label:'Demobilise and wait it out', cost:0,     weeks:1, quality:0 },
+      { label:'Erect weather shielding',    cost:70000, weeks:0, quality:0 },
+      { label:'Push through the weather',   cost:0,     weeks:0, quality:-7 }
+    ]
+  },
+  {
+    id:'crane', when: w => w >= 18,
+    title:'Crane gearbox failure',
+    text:'The main crane\u2019s gearbox fails during a lift. The deck sections are too heavy for the site\u2019s spare rig.',
+    choices:[
+      { label:'Rent a replacement crane',   cost:120000, weeks:0, quality:0 },
+      { label:'Wait for the repair',        cost:0,      weeks:1, quality:0 },
+      { label:'Improvise with a smaller rig', cost:25000, weeks:0, quality:-10 }
+    ]
+  },
+  {
+    id:'safety', when: w => w >= 16,
+    title:'Safety audit findings',
+    text:'An audit finds incomplete fall protection on the pier forms. Work at height is exposed.',
+    choices:[
+      { label:'Full stop, retrain and fix', cost:60000, weeks:1, quality:6 },
+      { label:'Fix on the fly',             cost:25000, weeks:0, quality:-8 }
+    ]
+  },
+  {
+    id:'client', when: w => w >= 20,
+    title:'Late client change',
+    text:'The client now wants a wider shared-use path across the deck \u2014 a change after design freeze.',
+    choices:[
+      { label:'Implement the change',     cost:150000, weeks:2, quality:3 },
+      { label:'Negotiate a change order', cost:60000,  weeks:1, quality:0 },
+      { label:'Refuse the change',        cost:0,      weeks:0, quality:-5 }
+    ]
+  },
+  {
+    id:'flood', when: w => w >= 22,
+    title:'Flash flood',
+    text:'A flash flood inundates the west approach overnight. Silt and debris cover the new works.',
+    choices:[
+      { label:'Pump out and inspect', cost:50000, weeks:1, quality:1 },
+      { label:'Resume immediately',   cost:0,     weeks:0, quality:-8 }
+    ]
+  },
+  {
+    id:'concrete', when: w => w >= 24,
+    title:'Concrete test failure',
+    text:'Cylinder tests on the latest pier pour fall below the specified strength.',
+    choices:[
+      { label:'Re-pour the affected section', cost:110000, weeks:2, quality:4 },
+      { label:'Core-test and accept',         cost:30000,  weeks:0, quality:-7 }
+    ]
+  }
+];
+
+let S = null;
+let modalOpen = false;
+let activeEvent = null;
+
+const $ = sel => document.querySelector(sel);
+const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+const getTask = id => S.tasks.find(t => t.id === id);
+
+function money(n) {
+  const abs = Math.abs(n);
+  const sign = n < 0 ? '\u2212' : '';
+  if (abs >= 1e6) return sign + '$' + (abs / 1e6).toFixed(2) + 'M';
+  if (abs >= 1e4) return sign + '$' + Math.round(abs / 1000) + 'k';
+  return sign + '$' + Math.round(abs);
+}
+
+function log(type, msg) {
+  S.log.push({ week: S.week, type, msg });
+}
+
+/* ---------------- state ---------------- */
+
+function init() {
+  S = {
+    week: 0,
+    spent: 0,
+    quality: 100,
+    freeze: 0,
+    over: false,
+    started: false,
+    log: [],
+    history: [{ week: 0, spent: 0, quality: 100 }],
+    eventUsed: new Set(),
+    tasks: TASKS.map(t => ({ ...t, progress: 0, crew: 0, status: 'locked', doneWeek: null, announced: false }))
+  };
+  modalOpen = false;
+  activeEvent = null;
+  $('#event').classList.add('hidden');
+  $('#end').classList.add('hidden');
+  refreshStatuses();
+  S.tasks.forEach(t => { t.announced = t.status === 'ready'; });
+  log('info', 'Project mobilised. Baseline 38 weeks, $4.00M budget, quality target 85.');
+  render();
+  $('#intro').classList.remove('hidden');
+}
+
+function refreshStatuses() {
+  for (const t of S.tasks) {
+    if (t.doneWeek != null) { t.status = 'done'; t.crew = 0; continue; }
+    const depsDone = t.deps.every(id => getTask(id).doneWeek != null);
+    t.status = !depsDone ? 'locked' : (t.crew > 0 ? 'active' : 'ready');
+  }
+}
+
+function announceUnlocks() {
+  for (const t of S.tasks) {
+    if (t.status === 'ready' && !t.announced) {
+      t.announced = true;
+      log('info', 'Unlocked: ' + t.name + '.');
+    }
+  }
+}
+
+/* ---------------- rendering ---------------- */
+
+function render() {
+  renderHeader();
+  renderBoard();
+  renderStaff();
+  renderChart();
+  renderLog();
+  renderFooter();
+}
+
+function renderHeader() {
+  const pct = S.spent / BUDGET * 100;
+  const remaining = BUDGET - S.spent;
+  const over = remaining < 0;
+  const done = S.tasks.filter(t => t.doneWeek != null).length;
+  $('#stats').innerHTML =
+    '<div class="stat">' +
+      '<div class="stat-label">Week</div>' +
+      '<div class="stat-value">' + S.week + '<span class="stat-sub">/ ' + BASELINE_WEEKS + ' baseline</span></div>' +
+    '</div>' +
+    '<div class="stat wide">' +
+      '<div class="stat-label"><span>Budget</span><span class="' + (over ? 'bad' : 'ok') + '">' +
+        (over ? 'over by ' + money(-remaining) : money(remaining) + ' left') + '</span></div>' +
+      '<div class="stat-value">' + money(S.spent) + '<span class="stat-sub">of ' + money(BUDGET) + '</span></div>' +
+      '<div class="bar ' + (over ? 'over' : '') + '"><div class="fill" style="width:' + clamp(pct, 0, 100) + '%"></div></div>' +
+    '</div>' +
+    '<div class="stat wide">' +
+      '<div class="stat-label"><span>Quality</span><span class="' + (S.quality < QUALITY_TARGET ? 'bad' : 'ok') + '">target \u2265 ' + QUALITY_TARGET + '</span></div>' +
+      '<div class="stat-value">' + Math.round(S.quality) + '<span class="stat-sub">/ 100</span></div>' +
+      '<div class="bar quality"><div class="fill" style="width:' + clamp(S.quality, 0, 100) + '%"></div></div>' +
+    '</div>' +
+    '<div class="stat">' +
+      '<div class="stat-label">Deliverables</div>' +
+      '<div class="stat-value">' + done + '<span class="stat-sub">/ ' + S.tasks.length + ' done</span></div>' +
+    '</div>';
+}
+
+function renderBoard() {
+  let html = '';
+  for (const ph of PHASES) {
+    const list = S.tasks.filter(t => t.phase === ph.key);
+    const done = list.filter(t => t.doneWeek != null).length;
+    html += '<section class="phase"><h3 class="phase-title"><span>' + ph.label + '</span><span>' + done + '/' + list.length + '</span></h3>';
+    for (const t of list) html += taskCard(t);
+    html += '</section>';
+  }
+  $('#board').innerHTML = html;
+  const done = S.tasks.filter(t => t.doneWeek != null).length;
+  $('#taskSummary').textContent = done + ' of ' + S.tasks.length + ' complete';
+}
+
+function taskCard(t) {
+  const role = ROLES[t.role];
+  const pct = clamp(t.progress / t.effort * 100, 0, 100);
+  const otherUsed = S.tasks.filter(x => x.role === t.role && x.id !== t.id).reduce((a, x) => a + x.crew, 0);
+  const free = role.pool - otherUsed;
+  const editable = t.status !== 'locked' && t.status !== 'done';
+  const canPlus = editable && t.crew < free;
+  const canMinus = editable && t.crew > 0;
+  const labels = { locked: 'LOCKED', ready: 'READY', active: 'ACTIVE', done: 'DONE' };
+
+  let foot;
+  if (t.status === 'locked') {
+    foot = '<div class="deps">Requires: ' + t.deps.map(id => getTask(id).name).join(' + ') + '</div>';
+  } else if (t.status === 'done') {
+    foot = '<div class="done-note">Completed week ' + t.doneWeek + (t.mat ? ' \u00b7 ' + money(t.mat) + ' material' : '') + '</div>';
+  } else {
+    foot =
+      '<div class="stepper">' +
+        '<button class="step" type="button" data-act="minus" data-id="' + t.id + '" aria-label="Remove worker"' + (canMinus ? '' : ' disabled') + '>\u2212</button>' +
+        '<div class="count-wrap"><span class="count">' + t.crew + '</span><span class="unit">' + role.short + '</span></div>' +
+        '<button class="step" type="button" data-act="plus" data-id="' + t.id + '" aria-label="Add worker"' + (canPlus ? '' : ' disabled') + '>+</button>' +
+      '</div>' +
+      '<span class="free">' + Math.max(0, free - t.crew) + ' ' + role.short + ' free</span>';
+  }
+
+  return '<article class="task ' + t.status + '">' +
+    '<div class="task-top"><span class="dot"></span><h4>' + t.name + '</h4><span class="badge ' + t.status + '">' + labels[t.status] + '</span></div>' +
+    '<p class="desc">' + t.desc + '</p>' +
+    '<div class="task-meta">' + role.name + ' \u00b7 ' + t.effort + ' pw' + (t.mat ? ' \u00b7 <span class="mat">' + money(t.mat) + '</span>' : '') + '</div>' +
+    '<div class="bar"><div class="fill" style="width:' + pct + '%"></div></div>' +
+    '<div class="progress-text">' + (t.status === 'done' ? '\u2713 delivered' : Math.min(t.progress, t.effort).toFixed(1) + ' / ' + t.effort + ' pw') + '</div>' +
+    '<div class="task-foot">' + foot + '</div>' +
+  '</article>';
+}
+
+/*__JS4__*/
+</script>
+</body>
+</html>

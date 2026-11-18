@@ -1,0 +1,20 @@
+# OS and editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
+
+# Logs and local exports
+*.log
+*.local
+exports/
+debriefs/
+planning-runs/
+
+# Tooling caches (not used by the app, but safe to ignore)
+node_modules/
+.cache/
+.vscode/
+.idea/

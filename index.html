@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mini-Grid EPC Simulator — Nigeria Edition</title>
+<meta name="description" content="Solar mini-grid EPC delivery simulator for Nigeria. Training, operations and planning modes.">
+<meta name="theme-color" content="#06110c">
+<script>
+  /* Apply the stored theme before first paint so light mode does not flash dark. */
+  (function () {
+    try {
+      var p = JSON.parse(localStorage.getItem("mg_epc_prefs_v1") || "{}");
+      var choice = p.theme || "dark";
+      var theme = choice === "system"
+        ? (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark")
+        : choice;
+      document.documentElement.setAttribute("data-theme", theme === "light" ? "light" : "dark");
+      document.documentElement.setAttribute("data-theme-choice", choice);
+    } catch (err) {
+      document.documentElement.setAttribute("data-theme", "dark");
+    }
+  })();
+</script>
+<link rel="stylesheet" href="css/theme.css">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/game.css">
+<link rel="stylesheet" href="css/planning.css">
+<link rel="stylesheet" href="css/report.css">
+</head>
+<body>
+<div id="app">
+  <section id="screen-landing" class="screen"></section>
+  <section id="screen-setup" class="screen hidden"></section>
+  <section id="screen-game" class="screen hidden"></section>
+  <section id="screen-planning" class="screen hidden"></section>
+  <section id="screen-settings" class="screen hidden"></section>
+</div>
+<div id="modal-root"></div>
+<div id="toast" class="toast hidden"></div>
+<noscript><div style="padding:24px;font-family:system-ui">This simulator needs JavaScript enabled. It runs entirely in your browser and works offline.</div></noscript>
+
+<script src="js/content.js"></script>
+<script src="js/content-tasks.js"></script>
+<script src="js/content-tasks-construction.js"></script>
+<script src="js/content-events.js"></script>
+<script src="js/content-data.js"></script>
+<script src="js/content-nigeria.js"></script>
+<script src="js/prefs.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/engine-report.js"></script>
+<script src="js/planning.js"></script>
+<script src="js/export.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/ui-game.js"></script>
+<script src="js/ui-planning.js"></script>
+<script src="js/ui-settings.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

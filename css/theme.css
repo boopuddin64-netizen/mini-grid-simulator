@@ -1,0 +1,108 @@
+/* Colour tokens and light / dark themes. Loaded before the other stylesheets. */
+:root{
+  color-scheme:dark;
+  --bg:#06110c;
+  --bg-2:#08150f;
+  --panel:#0b1a12;
+  --panel-2:#0e2117;
+  --surface:#0b1a12;
+  --surface-2:#0e2117;
+  --surface-3:#08140e;
+  --surface-4:#0a1810;
+  --surface-5:#0d1f16;
+  --well:#06110c;
+  --hover:#0c1d13;
+  --hover-strong:#12291c;
+  --line:#1a3325;
+  --line-2:#234433;
+  --line-soft:rgba(26,51,37,.58);
+  --text:#e9f4ed;
+  --text-soft:#b6cfc0;
+  --text-2:#a9c4b3;
+  --text-3:#cfe5d8;
+  --muted:#8ba899;
+  --dim:#5d7a6a;
+  --green:#34d399;
+  --green-deep:#10b981;
+  --green-ink:#04140b;
+  --amber:#fbbf24;
+  --amber-deep:#f59e0b;
+  --cyan:#38bdf8;
+  --violet:#a78bfa;
+  --red:#f87171;
+  --radius:14px;
+  --shadow:0 24px 60px rgba(0,0,0,.45);
+  --body-glow-a:rgba(52,211,153,.10);
+  --body-glow-b:rgba(251,191,36,.06);
+  --topbar:rgba(6,17,12,.88);
+  --rail-bg:linear-gradient(180deg,rgba(10,24,16,.72),rgba(6,17,12,.2));
+  --rail-fade:rgba(7,18,12,.94);
+  --rail-note:rgba(8,20,14,.55);
+  --modal-head:rgba(10,23,16,.97);
+  --backdrop:rgba(2,8,5,.74);
+  --modal-grad-a:#0e2117;
+  --modal-grad-b:#091610;
+  --card-grad-a:rgba(15,34,24,.92);
+  --card-grad-b:rgba(9,22,15,.94);
+  --input:#08140e;
+  --avatar-bg:#173d2a;
+  --avatar-bg-2:#12291c;
+  --avatar-text:#9ff0c6;
+  --chart-bg:#06110c;
+  --scroll-thumb:#234433;
+}
+
+[data-theme="light"]{
+  color-scheme:light;
+  --bg:#f5f8f3;
+  --bg-2:#eef3ec;
+  --panel:#ffffff;
+  --panel-2:#fbfdf9;
+  --surface:#ffffff;
+  --surface-2:#f7faf5;
+  --surface-3:#f2f7f0;
+  --surface-4:#edf4eb;
+  --surface-5:#e9f1e7;
+  --well:#edf4eb;
+  --hover:#eef6ec;
+  --hover-strong:#e3efe3;
+  --line:#dbe6db;
+  --line-2:#c6d6c8;
+  --line-soft:rgba(24,60,40,.11);
+  --text:#10231a;
+  --text-soft:#334d40;
+  --text-2:#3f5a4b;
+  --text-3:#284335;
+  --muted:#5d7568;
+  --dim:#667a6f;
+  --green:#0d7f57;
+  --green-deep:#0b6e4b;
+  --green-ink:#ffffff;
+  --amber:#a96a00;
+  --amber-deep:#b77900;
+  --cyan:#087ea4;
+  --violet:#6d4bd1;
+  --red:#c24141;
+  --shadow:0 22px 55px rgba(20,49,35,.12);
+  --body-glow-a:rgba(15,138,95,.08);
+  --body-glow-b:rgba(185,122,0,.05);
+  --topbar:rgba(250,252,248,.92);
+  --rail-bg:linear-gradient(180deg,rgba(255,255,255,.86),rgba(247,250,244,.55));
+  --rail-fade:rgba(245,248,243,.94);
+  --rail-note:rgba(255,255,255,.68);
+  --modal-head:rgba(255,255,255,.97);
+  --backdrop:rgba(12,31,21,.34);
+  --modal-grad-a:#ffffff;
+  --modal-grad-b:#f8fbf6;
+  --card-grad-a:#ffffff;
+  --card-grad-b:#f8fbf6;
+  --input:#f7faf5;
+  --avatar-bg:#d9ede1;
+  --avatar-bg-2:#e3f1e7;
+  --avatar-text:#0f6b4a;
+  --chart-bg:#e9f1e7;
+  --scroll-thumb:#bfd2c3;
+}
+
+html{background:var(--bg)}
+body{transition:background-color .22s ease,color .22s ease}

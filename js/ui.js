@@ -1,0 +1,403 @@
+/* Shared UI helpers, landing, setup and final report. */
+(function () {
+  "use strict";
+  var U = (MG.ui = MG.ui || {});
+  var C = MG.content;
+
+  MG.app = MG.app || {
+    screen: "landing",
+    setup: { scenarioId: "gidan-sama", difficulty: "normal", seed: 20261117, facilitator: false },
+    phase: "development",
+    gameSection: "overview",
+    logFilter: "all",
+    planningResult: null,
+    planningInputs: null,
+    modal: null
+  };
+
+  function esc(s) {
+    return String(s === undefined || s === null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  function money(n) {
+    n = Number(n) || 0;
+    var sign = n < 0 ? "-" : "";
+    n = Math.abs(n);
+    if (n >= 1000000) return sign + "$" + (n / 1000000).toFixed(2) + "M";
+    if (n >= 10000) return sign + "$" + Math.round(n / 1000) + "k";
+    return sign + "$" + Math.round(n).toLocaleString("en-US");
+  }
+  function moneyExact(n) {
+    var v = Math.round(Number(n) || 0);
+    return (v < 0 ? "-$" : "$") + Math.abs(v).toLocaleString("en-US");
+  }
+  function pct(n, digits) {
+    n = Number(n) || 0;
+    return (n * 100).toFixed(digits === undefined ? 1 : digits) + "%";
+  }
+  function pctNum(n, digits) { return (Number(n) || 0).toFixed(digits === undefined ? 0 : digits) + "%"; }
+  function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+  function icon(name, size) {
+    var paths = {
+      sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+      chart: '<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>',
+      play: '<path d="M8 5l11 7-11 7z"/>',
+      lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/>',
+      pin: '<path d="M12 22s7-6.2 7-12A7 7 0 105 10c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/>',
+      clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+      cash: '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M6 10h.01M18 14h.01"/>',
+      users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 21a6.5 6.5 0 0113 0"/><path d="M17 5a3 3 0 010 6M18 21a6 6 0 00-3-5.2"/>',
+      alert: '<path d="M12 3l10 18H2z"/><path d="M12 9v5M12 17.5v.5"/>',
+      check: '<path d="M4 12l5 5L20 6"/>',
+      shield: '<path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/>',
+      grid: '<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/>',
+      download: '<path d="M12 3v12M7 11l5 5 5-5"/><path d="M4 21h16"/>',
+      home: '<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>',
+      arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+      battery: '<rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 10v4"/><path d="M5 10v4M9 10v4M13 10v4"/>',
+      gauge: '<path d="M12 21a9 9 0 110-18 9 9 0 010 18z"/><path d="M12 12l4-4M12 12v.01"/>',
+      layers: '<path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 12l9 5 9-5"/><path d="M3 16l9 5 9-5"/>',
+      truck: '<path d="M3 7h11v10H3z"/><path d="M14 10h4l3 3v4h-7z"/><circle cx="7" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/>',
+      save: '<path d="M5 3h12l3 3v15H4V3z"/><path d="M8 3v6h8V3M8 21v-7h8v7"/>',
+      warn: '<circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 17v.01"/>',
+      info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7v.01"/>',
+      moon: '<path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/>',
+      pulse: '<path d="M3 12h4l2.5-6 4 12 2.5-6h5"/>',
+      settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4v-.2a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3v-4h.2a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.4 7 7.2 4.2l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V3h4v.2a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L20 7.2l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4h-.2a1.7 1.7 0 0 0-1.6 1z"/>'
+    };
+    return '<svg class="ico" width="' + (size || 18) + '" height="' + (size || 18) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (paths[name] || "") + "</svg>";
+  }
+  function logo() {
+    return '<div class="logo">' + icon("sun", 24) + "</div>";
+  }
+  function themeButton() {
+    var light = document.documentElement.getAttribute("data-theme") === "light";
+    return '<button class="theme-btn" data-action="theme-toggle" aria-label="Switch to ' + (light ? "dark" : "light") + ' theme" title="Switch theme">' +
+      icon(light ? "moon" : "sun", 16) + "</button>";
+  }
+  function accountButton() {
+    var p = MG.prefs ? MG.prefs.get().profile : {};
+    var name = MG.prefs ? MG.prefs.displayName() : "Guest player";
+    var shortName = String(name).split(" ")[0] || "Account";
+    return '<button class="account-btn" data-action="open-settings" title="Account and settings">' +
+      '<span class="avatar-initials">' + esc(MG.prefs ? MG.prefs.initials(p.name) : "MG") + "</span>" +
+      '<span class="account-name">' + esc(shortName) + "</span></button>";
+  }
+  function topbar(actions) {
+    return '<div class="topbar">' +
+      '<div class="brand" data-action="home" role="button" tabindex="0" aria-label="Home">' + logo() +
+      '<div><div class="brand-name">Mini-Grid EPC Simulator</div><div class="brand-sub">Nigeria Edition</div></div></div>' +
+      '<div class="nav-actions">' + (actions || "") + '<div class="top-utility">' + themeButton() + accountButton() + "</div></div></div>";
+  }
+  function sparkline(values, colour, height) {
+    if (!values || values.length < 2) return '<div class="spark-empty">No history yet</div>';
+    var w = 120, h = height || 34;
+    var min = Math.min.apply(null, values), max = Math.max.apply(null, values);
+    if (max === min) max = min + 1;
+    var pts = values.map(function (v, i) {
+      var x = (i / (values.length - 1)) * w;
+      var y = h - ((v - min) / (max - min)) * (h - 4) - 2;
+      return x.toFixed(1) + "," + y.toFixed(1);
+    }).join(" ");
+    return '<svg class="spark" viewBox="0 0 ' + w + " " + h + '" preserveAspectRatio="none" style="color:' + (colour || "#34d399") + '"><polyline points="' + pts + '" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg>';
+  }
+  function meter(label, value, colour, suffix) {
+    var v = clamp(Number(value) || 0, 0, 100);
+    return '<div class="meter"><div class="meter-top"><span>' + esc(label) + '</span><b>' + Math.round(v) + (suffix || "") + '</b></div>' +
+      '<div class="bar"><i style="width:' + v + "%;background:" + colour + '"></i></div></div>';
+  }
+
+  function setScreen(id) {
+    ["landing", "setup", "game", "planning", "settings"].forEach(function (s) {
+      var el = document.getElementById("screen-" + s);
+      if (el) el.classList.toggle("hidden", s !== id);
+    });
+    window.scrollTo(0, 0);
+  }
+
+  U.helpers = { esc: esc, money: money, moneyExact: moneyExact, pct: pct, pctNum: pctNum, clamp: clamp, icon: icon, sparkline: sparkline, meter: meter };
+  U.setScreen = setScreen;
+  U.topbar = topbar;
+
+  U.render = function () {
+    if (!MG.app) return;
+    var screen = MG.app.screen;
+    if (screen === "game" && MG.engine.getState()) {
+      if (MG.engine.getState().finished) { U.renderReport(); return; }
+      U.renderGame();
+      return;
+    }
+    if (screen === "planning") { setScreen("planning"); U.renderPlanning(); return; }
+    if (screen === "setup") { setScreen("setup"); U.renderSetup(); return; }
+    if (screen === "settings") { U.renderSettings(); return; }
+    setScreen("landing");
+    U.renderLanding();
+  };
+
+  /* ---------------- landing ---------------- */
+  U.renderLanding = function () {
+    var save = MG.engine.savedInfo();
+    var live = C.scenarios[0];
+    var scenarios = C.scenarios.map(function (s) {
+      var locked = s.status !== "live";
+      return '<button class="scenario-card ' + (locked ? "locked" : "") + '" data-action="' + (locked ? "locked-scenario" : "go-setup") + '" data-scenario="' + s.id + '">' +
+        '<div class="sc-top"><div><h4>' + esc(s.name) + '</h4><div class="loc">' + esc(s.location) + "</div></div>" +
+        '<span class="pill ' + (locked ? "next" : "live") + '">' + (locked ? "Next release" : "Live") + "</span></div>" +
+        '<div class="sc-desc">' + esc(s.tagline) + "</div>" +
+        '<div class="sc-meta"><span>' + esc((s.contractType || "EPC contract").split("(")[0]) + "</span><span>" + s.targetWeeks + " weeks</span><span>" + (s.capacityKWp >= 1000 ? (s.capacityKWp / 1000).toFixed(1) + " MWp" : s.capacityKWp + " kWp") + "</span></div>" +
+        "</button>";
+    }).join("");
+
+    var resume = "";
+    if (save) {
+      resume = '<div class="resume-card"><div><b>' + (save.finished ? "Final report ready" : "Resume session — week " + save.week) + '</b>' +
+        '<div class="small">' + esc(save.scenario) + " · " + esc(save.difficulty) + " · cash " + money(save.cash) + " · saved " + (save.savedAt ? new Date(save.savedAt).toLocaleString() : "locally") + "</div></div>" +
+        '<div class="resume-actions"><button class="btn primary small" data-action="resume">' + (save.finished ? "View report" : "Resume") + '</button>' +
+        '<button class="btn ghost small" data-action="discard-save">Discard</button></div></div>';
+    }
+
+    document.getElementById("screen-landing").innerHTML =
+      topbar('<button class="btn ghost small" data-action="go-planning">' + icon("chart", 14) + " Planning mode</button>" +
+        '<button class="btn ghost small" data-action="open-model">Model card</button>') +
+      '<section class="hero">' +
+        '<div class="hero-copy">' +
+          '<p class="kicker">Solar EPC delivery · Nigeria only</p>' +
+          '<h1>Run the project <em>before</em> you run the project.</h1>' +
+          '<p class="lede">A management-level simulator for solar mini-grid delivery in Nigeria. Staff the team, sequence development and procurement, survive Apapa and the naira, and commission a plant the client will actually accept.</p>' +
+          '<div class="hero-actions"><button class="btn primary" data-action="go-setup" data-scenario="gidan-sama">' + icon("play", 15) + ' Start training</button>' +
+          '<button class="btn amber" data-action="go-planning">' + icon("chart", 15) + ' Open planning mode</button></div>' +
+          '<p class="small" style="margin-top:14px">Training sessions save locally and resume. Planning mode shows ranges, assumptions and confidence — never a single “precise” number.</p>' +
+        "</div>" +
+        '<aside class="hero-panel">' +
+          '<div><span class="pill live">Live scenario</span><h3 style="margin:12px 0 4px;font-size:20px">' + esc(live.name) + "</h3>" +
+          '<div class="small">' + esc(live.location) + " · " + esc(live.client) + "</div></div>" +
+          '<div class="mini-facts">' +
+            '<div class="fact"><b>500 kWp</b><span>PV capacity</span></div>' +
+            '<div class="fact"><b>1.2 MWh</b><span>Battery storage</span></div>' +
+            '<div class="fact"><b>1,200</b><span>Connections</span></div>' +
+            '<div class="fact"><b>$2.90M</b><span>Contract value</span></div>' +
+            '<div class="fact"><b>60 weeks</b><span>Target COD</span></div>' +
+            '<div class="fact"><b>12%</b><span>Target margin</span></div>' +
+          "</div>" +
+          '<div class="model-strip"><span class="dot"></span><span>Calibration <b style="color:var(--text)">Level C</b> — public benchmarks + expert priors. Indicative, not bankable.</span></div>' +
+        "</aside>" +
+      "</section>" +
+      resume +
+      '<div class="modes" style="margin-top:24px">' +
+        '<article class="mode-card" data-action="go-setup" data-scenario="gidan-sama"><span class="tag">Playable now</span><div class="mode-icon">' + icon("play", 20) + "</div>" +
+          "<h3>Training mode</h3><p>Run Gidan Sama week by week. Assign the team, place orders, answer Nigeria-specific events and get a scored debrief. Facilitator controls included.</p>" +
+          '<div class="sc-meta" style="margin-top:12px"><span>5 phases</span><span>35 tasks</span><span>17 events</span><span>3 difficulty levels</span></div></article>' +
+        '<article class="mode-card planning" data-action="go-planning"><span class="tag amber">Indicative ranges</span><div class="mode-icon">' + icon("chart", 20) + "</div>" +
+          "<h3>Planning mode</h3><p>Edit the cost base, contract and uncertainty assumptions. Run a Monte Carlo and see P10 / P50 / P90 cost, duration, margin and cash low point — with a tornado and a visible model card.</p>" +
+          '<div class="sc-meta" style="margin-top:12px"><span>2,000 runs</span><span>P10–P90</span><span>Confidence C</span><span>JSON export</span></div></article>' +
+      "</div>" +
+      '<div class="section-head"><div><h2>Project library</h2><div class="muted">Five Nigerian reference projects. One is playable in v0.1; the rest define the roadmap.</div></div></div>' +
+      '<div class="scenario-grid">' + scenarios + "</div>" +
+      '<footer class="page-foot"><div><b>' + C.APP.title + " — " + C.APP.edition + "</b> · v" + C.APP.version + " · " + C.APP.contentDate + "</div>" +
+      '<div class="small">' + esc(C.APP.disclaimer) + " Fictional project; public calibration data.</div></footer>";
+  };
+
+  /* ---------------- setup ---------------- */
+  U.renderSetup = function () {
+    var sc = C.scenarios.filter(function (s) { return s.id === MG.app.setup.scenarioId; })[0] || C.scenarios[0];
+    var d = C.difficulties[MG.app.setup.difficulty] || C.difficulties.normal;
+    var cond = C.nigeria.normalize(MG.app.setup.conditions);
+    MG.app.setup.conditions = cond;
+    var cEff = C.nigeria.effects(cond);
+    var effectiveCash = d.startingCash + (cEff.cash || 0);
+    var grantTotal = Math.round((cEff.grantPerConnection || 0) * (sc.connections || 0));
+    var diffButtons = Object.keys(C.difficulties).map(function (k) {
+      var x = C.difficulties[k];
+      return '<button data-action="difficulty" data-level="' + k + '" class="' + (k === d.id ? "on" : "") + '">' + x.label + "</button>";
+    }).join("");
+    var team = (sc.team || C.team).map(function (m) {
+      return '<div class="team-chip"><span class="avatar">' + m.name.split(" ").map(function (p) { return p[0]; }).join("") + '</span><div><b>' + esc(m.name) + '</b><span>' + esc(C.roles[m.role].label) + " · " + money(m.rate) + "/wk</span></div></div>";
+    }).join("");
+
+    var presetButtons = C.nigeria.presets.map(function (p) {
+      var on = Object.keys(p.conditions).every(function (k) { return p.conditions[k] === cond[k]; });
+      return '<button class="preset-btn ' + (on ? "on" : "") + '" data-action="conditions-preset" data-preset="' + p.id + '" title="' + esc(p.blurb) + '">' + esc(p.label) + "</button>";
+    }).join("");
+    var conditionFields = C.nigeria.groups.map(function (g) {
+      var selected = C.nigeria.findOption(g.id, cond[g.id]) || {};
+      return '<div class="condition-field"><label for="condition-' + g.id + '">' + esc(g.label) + "</label>" +
+        '<select id="condition-' + g.id + '" data-condition="' + g.id + '">' +
+          g.options.map(function (o) { return '<option value="' + o.id + '" ' + (o.id === cond[g.id] ? "selected" : "") + ">" + esc(o.label) + "</option>"; }).join("") +
+        "</select>" +
+        '<div class="condition-note" data-condition-note="' + g.id + '">' + esc(selected.note || "") + "</div></div>";
+    }).join("");
+    var impactChips = C.nigeria.summary(cond).concat([
+      "Start cash " + money(effectiveCash),
+      grantTotal ? "Grant $" + grantTotal.toLocaleString("en-US") : "No grant cash"
+    ]).map(function (s) { return "<span>" + esc(s) + "</span>"; }).join("");
+
+    document.getElementById("screen-setup").innerHTML =
+      topbar('<button class="btn ghost small" data-action="home">' + icon("arrow", 14) + ' Back</button><button class="btn ghost small" data-action="open-model">Model card</button>') +
+      '<div class="setup-wrap"><div class="setup-card">' +
+        '<p class="kicker">Training setup</p><h1>' + esc(sc.name) + "</h1>" +
+        '<p class="lede">' + esc(sc.description) + "</p>" +
+        '<div class="setup-grid">' +
+          '<div>' +
+            '<div class="brief-box"><h4>Contract brief</h4><ul>' +
+              "<li><b>Client:</b> " + esc(sc.client) + "</li>" +
+              "<li><b>Contract:</b> " + esc(sc.contractType) + "</li>" +
+              "<li><b>Value:</b> " + moneyExact(sc.contractValue) + " · <b>Target:</b> " + sc.targetWeeks + " weeks · <b>Margin:</b> " + pct(sc.targetMargin, 0) + "</li>" +
+              "<li><b>Scope:</b> " + esc(sc.scope.join("; ")) + "</li>" +
+              "<li><b>Location:</b> " + esc(sc.location) + "</li>" +
+            "</ul></div>" +
+            '<div class="brief-box"><h4>Watch for</h4><ul>' + sc.risks.map(function (r) { return "<li>" + esc(r) + "</li>"; }).join("") + "</ul></div>" +
+            '<div class="conditions-card"><div class="conditions-head"><div><h4>Nigeria operating conditions</h4>' +
+              '<p>These change task costs, procurement time, event weighting, grant cash and financing cost. Pick a preset or tune each condition.</p></div>' +
+              '<div class="preset-row">' + presetButtons + "</div></div>" +
+              '<div class="condition-grid">' + conditionFields + "</div>" +
+              '<div class="condition-impact">' + impactChips + "</div></div>" +
+            '<div class="field"><label>Difficulty</label><div class="seg">' + diffButtons + "</div>" +
+              '<div class="hint">' + esc(d.blurb) + " Starting cash " + moneyExact(effectiveCash) + ", overdraft " + moneyExact(d.overdraft) + ", delay damages " + moneyExact(d.ldPerWeek) + "/week after target.</div></div>" +
+          "</div>" +
+          "<div>" +
+            '<div class="field"><label for="seed-input">Scenario seed</label><input id="seed-input" type="number" value="' + esc(MG.app.setup.seed) + '" min="1"><div class="hint">Same seed + same decisions = same event sequence. Useful for comparing cohorts.</div></div>' +
+            '<label class="checkline"><input type="checkbox" id="facilitator-input" ' + (MG.app.setup.facilitator ? "checked" : "") + "> Enable facilitator controls</label>" +
+            '<div class="brief-box" style="margin-top:14px"><h4>Starting team · ' + (sc.team || C.team).length + ' people · ' + moneyExact((sc.team || C.team).reduce(function (sum, m) { return sum + m.rate; }, 0)) + "/week</h4><div class=\"team-grid\">" + team + "</div></div>" +
+            '<div class="brief-box"><h4>What this exercises</h4><ul><li>Five-phase EPC sequencing and dependency management</li><li>Cash, payment certificates, retention and delay damages</li><li>Procurement lead times, supplier tier and customs risk</li><li>Community consent, regulation, safety and quality</li><li>Decision quality under Nigerian constraints</li></ul></div>' +
+            '<button class="btn primary" style="width:100%;padding:13px" data-action="start-game">Start project · Week 0</button>' +
+            '<p class="small" style="margin-top:9px">The game ends at handover, insolvency, or week 80. Autosaves after every action.</p>' +
+          "</div>" +
+        "</div>" +
+      "</div></div>";
+  };
+
+  /* ---------------- final report ---------------- */
+  U.renderReport = function () {
+    var state = MG.engine.getState();
+    if (!state) { MG.app.screen = "landing"; U.render(); return; }
+    var gameScreen = document.getElementById("screen-game");
+    if (gameScreen) gameScreen.classList.remove("app-screen");
+    var r = state.report || MG.report.build(state);
+    var grade = r.grade;
+    var scoreRows = [
+      ["Schedule", r.scores.schedule, 0.25, "#34d399"],
+      ["Cost / margin", r.scores.cost, 0.25, "#fbbf24"],
+      ["Technical / PR", r.scores.technical, 0.25, "#38bdf8"],
+      ["Safety / compliance", r.scores.safety, 0.15, "#f87171"],
+      ["Stakeholder", r.scores.stakeholder, 0.10, "#a78bfa"]
+    ].map(function (x) {
+      return '<div class="score-row"><div class="score-label"><span>' + x[0] + '</span><span class="dim">' + Math.round(x[2] * 100) + "% weight</span></div>" +
+        '<div class="score-value"><div class="bar"><i style="width:' + x[1] + '%;background:' + x[3] + '"></i></div><b>' + x[1] + "</b></div></div>";
+    }).join("");
+
+    var decisions = r.decisions.length ? r.decisions.map(function (d) {
+      return '<div class="log-row"><span class="week-tag">W' + d.week + '</span><div><b>' + esc(d.event) + '</b><div class="small">' + esc(d.choice) + "</div></div></div>";
+    }).join("") : '<div class="small">No event decisions were taken.</div>';
+
+    var lessons = r.lessons.map(function (l) { return "<li>" + esc(l) + "</li>"; }).join("");
+    var failing = r.finishReason !== "completed";
+
+    document.getElementById("screen-game").innerHTML =
+      topbar('<button class="btn ghost small" data-action="report-pdf">' + icon("download", 14) + ' PDF report</button><button class="btn ghost small" data-action="save">Save</button><button class="btn ghost small" data-action="report-export">Export JSON</button><button class="btn ghost small" data-action="report-home">Home</button>') +
+      '<div class="report-wrap">' +
+        '<div class="report-head">' +
+          '<div><p class="kicker">' + (failing ? "Project closed early" : "Final report") + "</p><h1>Grade " + grade.grade + " — " + esc(grade.label) + "</h1>" +
+          '<p class="lede">' + esc(r.reasonLabel) + " " + esc(grade.note) + "</p></div>" +
+          '<div class="grade-badge grade-' + grade.grade.toLowerCase() + '">' + grade.grade + "</div>" +
+        "</div>" +
+        '<div class="kpi-grid report-kpis">' +
+          '<div class="kpi"><span>Overall score</span><b>' + r.scores.total + '<small>/100</small></b><div class="small">Weighted across five dimensions</div></div>' +
+          '<div class="kpi"><span>Margin</span><b class="' + (r.financials.margin < 0.12 ? "bad" : "good") + '">' + pct(r.financials.margin) + '</b><div class="small">' + money(r.financials.totalRevenue) + " revenue · " + money(r.financials.actualCost) + " cost</div></div>" +
+          '<div class="kpi"><span>Finish</span><b>' + (r.completed ? "W" + r.finishedWeek : "W" + r.finishedWeek) + '<small>/' + r.targetWeeks + " target</small></b><div class=\"small\">" + esc(r.delivery.done + "/" + r.delivery.total + " tasks complete") + "</div></div>" +
+          '<div class="kpi"><span>Performance ratio</span><b>' + pct(r.technical.pr) + '</b><div class="small">' + r.technical.annualMWh + " MWh/yr · " + r.technical.yieldPerKWp + " kWh/kWp</div></div>" +
+        "</div>" +
+        '<div class="report-grid">' +
+          '<div class="panel"><div class="panel-head"><h3>Score breakdown</h3><span class="small">Difficulty-adjusted</span></div>' + scoreRows +
+            '<div class="report-total"><span>Weighted total</span><b>' + r.scores.total + "</b></div></div>" +
+          '<div class="panel"><div class="panel-head"><h3>Financial summary</h3></div><table class="data-table">' +
+            "<tr><td>Contract value</td><td>" + moneyExact(r.financials.contractValue) + "</td></tr>" +
+            "<tr><td>Change orders</td><td>" + moneyExact(r.financials.revenueAdjust) + "</td></tr>" +
+            "<tr><td>Actual cost</td><td>" + moneyExact(r.financials.actualCost) + "</td></tr>" +
+            "<tr><td>Cost at completion (forecast)</td><td>" + moneyExact(r.financials.projectedCost) + "</td></tr>" +
+            "<tr><td>Cash at close</td><td class=\"" + (r.financials.cashEnd < 0 ? "bad" : "") + "\">" + moneyExact(r.financials.cashEnd) + "</td></tr>" +
+            "<tr><td>Peak overdraft</td><td>" + moneyExact(r.financials.peakOverdraft) + "</td></tr>" +
+            "<tr><td>Retention still receivable</td><td>" + moneyExact(r.financials.retentionReceivable) + "</td></tr>" +
+          "</table></div>" +
+          '<div class="panel"><div class="panel-head"><h3>Delivery &amp; compliance</h3></div><table class="data-table">' +
+            "<tr><td>Finish reason</td><td>" + esc(r.finishReason) + "</td></tr>" +
+            "<tr><td>Tasks complete</td><td>" + r.delivery.done + " / " + r.delivery.total + "</td></tr>" +
+            "<tr><td>Events resolved</td><td>" + r.delivery.events + "</td></tr>" +
+            "<tr><td>Quality score</td><td>" + r.stats.quality.toFixed(1) + "</td></tr>" +
+            "<tr><td>Safety score</td><td>" + r.stats.safety.toFixed(1) + "</td></tr>" +
+            "<tr><td>Stakeholder score</td><td>" + r.stats.stakeholder.toFixed(1) + "</td></tr>" +
+            "<tr><td>Compliance score</td><td>" + r.stats.compliance.toFixed(1) + "</td></tr>" +
+          "</table></div>" +
+          '<div class="panel"><div class="panel-head"><h3>Debrief: what to take away</h3></div><ul class="lesson-list">' + lessons + "</ul>" +
+            '<div class="small" style="margin-top:10px">Facilitator prompt: ask each player to name one decision they would reverse, and what signal they missed.</div></div>' +
+        "</div>" +
+        '<div class="panel" style="margin-top:14px"><div class="panel-head"><h3>Decision log</h3><span class="small">' + r.decisions.length + " event decisions</span></div>" + decisions + "</div>" +
+        '<div class="report-actions"><button class="btn primary" data-action="report-pdf">' + icon("download", 15) + ' Download PDF debrief</button>' +
+          '<button class="btn" data-action="report-export">Export JSON</button>' +
+          '<button class="btn ghost" data-action="report-restart">Run another project</button>' +
+          '<button class="btn ghost" data-action="report-home">Back to landing</button></div>' +
+        '<p class="small" style="max-width:900px;margin-top:16px">' + esc(C.APP.disclaimer) + " Calibration " + C.calibration.levelLabel + ". This score measures decisions inside a fictional scenario, not individual competence.</p>" +
+      "</div>";
+    setScreen("game");
+  };
+
+  /* ---------------- modal / toast ---------------- */
+  U.openModal = function (html, cls) {
+    var root = document.getElementById("modal-root");
+    root.innerHTML = '<div class="modal-backdrop" data-action="close-modal"><div class="modal ' + (cls || "") + '" role="dialog" aria-modal="true">' + html + "</div></div>";
+    document.body.classList.add("modal-open");
+  };
+  U.closeModal = function () {
+    document.getElementById("modal-root").innerHTML = "";
+    document.body.classList.remove("modal-open");
+  };
+  U.toast = function (msg, type) {
+    var el = document.getElementById("toast");
+    el.className = "toast " + (type || "info");
+    el.textContent = msg;
+    clearTimeout(U._toastTimer);
+    U._toastTimer = setTimeout(function () { el.className = "toast hidden"; }, 3800);
+  };
+  U.download = function (filename, obj) {
+    var blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 500);
+  };
+
+  U.openModelCard = function () {
+    var m = C.modelCard;
+    var params = C.calibration.parameters.map(function (p) {
+      return "<tr><td><b>" + esc(p.name) + "</b><div class=\"small\">" + esc(p.source) + "</div></td><td class=\"mono\">" + esc(p.value) + '</td><td><span class="tag-small">' + p.confidence + "</span></td></tr>";
+    }).join("");
+    var sources = C.calibration.sources.map(function (s) {
+      return '<li><a href="' + esc(s.url) + '" target="_blank" rel="noopener">' + esc(s.label) + "</a></li>";
+    }).join("");
+    U.openModal(
+      '<div class="modal-head"><div><p class="kicker">Model card</p><h2>' + esc(m.name) + '</h2><div class="small">v' + m.modelVersion + " · " + m.contentDate + '</div></div><button class="icon-btn" data-action="close-modal" aria-label="Close">✕</button></div>' +
+      '<div class="modal-body"><div class="callout amber"><b>' + esc(C.calibration.levelLabel) + "</b><br>" + esc(C.calibration.statement) + "</div>" +
+      "<h4>Intended use</h4><p>" + esc(m.intendedUse) + "</p>" +
+      "<h4>Out of scope</h4><ul>" + m.outOfScope.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>" +
+      "<h4>Method</h4><p>" + esc(m.method) + "</p>" +
+      "<h4>Data and calibration</h4><p>" + esc(m.data) + "</p>" +
+      '<table class="data-table compact">' + params + "</table>" +
+      "<h4>Known biases</h4><ul>" + m.knownBiases.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>" +
+      "<h4>Validation status</h4><p><b>Content:</b> " + esc(m.validation.content) + "<br><b>Causal:</b> " + esc(m.validation.causal) + "<br><b>Calibration:</b> " + esc(m.validation.calibration) + "<br><b>Predictive:</b> " + esc(m.validation.predictive) + "<br><b>Learning:</b> " + esc(m.validation.learning) + "</p>" +
+      "<h4>Sources</h4><ul class=\"source-list\">" + sources + "</ul>" +
+      "<p class=\"small\">" + esc(m.disclaimer) + "</p></div>",
+      "wide"
+    );
+  };
+
+  U.openAbout = function () {
+    U.openModal(
+      '<div class="modal-head"><div><p class="kicker">About the simulator</p><h2>Two modes, one delivery model</h2></div><button class="icon-btn" data-action="close-modal" aria-label="Close">✕</button></div>' +
+      '<div class="modal-body"><p class="lede">Training mode is a five-phase task-network game. Planning mode is a transparent parametric Monte Carlo. They share the same project definitions and calibration pack, but they answer different questions.</p>' +
+      '<div class="mode-compare"><div><h4>Training</h4><ul><li>Week-by-week delivery</li><li>Crew assignment and cash flow</li><li>Nigeria event library</li><li>Scored debrief</li><li>Facilitator controls</li></ul></div>' +
+      '<div><h4>Planning</h4><ul><li>Editable cost and contract inputs</li><li>P10 / P50 / P90 ranges</li><li>Cash low point and insolvency probability</li><li>Tornado sensitivity</li><li>Assumption register and model card</li></ul></div></div>' +
+      '<div class="callout"><b>Honest limit.</b> With public data only, v0.1 is calibration Level C. It is not a validated predictor and must not be used for a bid price, investment approval or bankable forecast. The training mode is content-validated against a documented mini-grid WBS; expert review is the next gate.</div></div>'
+    );
+  };
+})();
