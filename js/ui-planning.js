@@ -5,13 +5,18 @@
   var C = MG.content;
   var H = U.helpers;
   var esc = H.esc, money = H.money, moneyExact = H.moneyExact, pct = H.pct;
-  var percentFields = { civilPct: 1, engineeringPct: 1, logisticsPct: 1, contingencyPct: 1, uncertaintyPct: 1, targetMargin: 1 };
+  var percentFields = {
+    civilPct: 1, engineeringPct: 1, logisticsPct: 1, contingencyPct: 1, targetMargin: 1,
+    advancePct: 1, retentionPct: 1, interestAnnualPct: 1, arrangementFeePct: 1, commitmentFeePct: 1,
+    ldCapPct: 1, importDutyPct: 1, fxExposurePct: 1, fxDepreciationPct: 1, escalationPct: 1, bondsPct: 1
+  };
 
   var groups = [
     {
-      title: "Project & contract", note: "What you are delivering and what the client pays.",
+      title: "Project & contract", note: "What you are delivering, how it is benchmarked and what the client pays.",
       fields: [
         { id: "name", label: "Project name", type: "text", step: "" },
+        { id: "benchmarkProfile", label: "Benchmark class", type: "select", step: "", options: Object.keys(C.calibration.benchmarkProfiles).map(function (k) { return { value: k, label: C.calibration.benchmarkProfiles[k].label }; }) },
         { id: "capacityKWp", label: "PV capacity (kWp)", step: "10" },
         { id: "bessKWh", label: "BESS capacity (kWh)", step: "10" },
         { id: "connections", label: "Connections", step: "10" },
@@ -20,7 +25,7 @@
       ]
     },
     {
-      title: "Cost basis", note: "Installed unit costs, not bare equipment prices. Change them and the ranges move.",
+      title: "Cost basis", note: "Installed unit costs, not bare equipment prices. Import duty, FX and escalation are explicit lines.",
       fields: [
         { id: "pvUnitCost", label: "PV installed cost ($/Wp)", step: "0.01" },
         { id: "bessUnitCost", label: "BESS installed cost ($/kWh)", step: "1" },
@@ -29,20 +34,41 @@
         { id: "engineeringPct", label: "Engineering / PM (%)", step: "0.5" },
         { id: "logisticsPct", label: "Logistics & customs (% of PV+BESS)", step: "0.5" },
         { id: "developmentFixed", label: "Development fixed cost (USD)", step: "5000" },
-        { id: "contingencyPct", label: "Contingency (%)", step: "0.5" }
+        { id: "contingencyPct", label: "Contingency (%)", step: "0.5" },
+        { id: "importDutyPct", label: "Import duty (% of PV+BESS)", step: "0.5" },
+        { id: "fxExposurePct", label: "FX exposure (% of PV+BESS)", step: "1" },
+        { id: "fxDepreciationPct", label: "Naira depreciation on exposure (%)", step: "1" },
+        { id: "escalationPct", label: "Annual cost escalation (%)", step: "0.5" },
+        { id: "bondsPct", label: "Bonds / insurance (% of contract)", step: "0.1" }
       ]
     },
     {
-      title: "Schedule, cash & uncertainty", note: "These parameters drive the spread and the cash low point.",
+      title: "Contract & financing", note: "Payment terms, retention, delay-damages cap and the cost of the cash facility.",
       fields: [
-        { id: "weeklyOverhead", label: "Weekly overhead (USD)", step: "100" },
+        { id: "advancePct", label: "Advance (% of contract)", step: "1" },
+        { id: "retentionPct", label: "Retention (% of contract)", step: "0.5" },
+        { id: "retentionReleaseWeeks", label: "Retention release (weeks)", step: "1" },
         { id: "paymentLagWeeks", label: "Payment certificate lag (weeks)", step: "1" },
+        { id: "interestAnnualPct", label: "Interest rate (annual %)", step: "0.1" },
+        { id: "arrangementFeePct", label: "Arrangement fee (% of facility)", step: "0.1" },
+        { id: "commitmentFeePct", label: "Commitment fee (% p.a.)", step: "0.1" },
+        { id: "ldCapPct", label: "Delay-damages cap (% of contract)", step: "0.5" },
         { id: "startingCash", label: "Starting cash (USD)", step: "5000" },
         { id: "overdraft", label: "Overdraft limit (USD)", step: "5000" },
-        { id: "ldPerWeek", label: "Delay damages ($/week)", step: "500" },
+        { id: "ldPerWeek", label: "Delay damages ($/week)", step: "500" }
+      ]
+    },
+    {
+      title: "Schedule & uncertainty", note: "Separate cost and duration risk, their correlation, and the weather calendar.",
+      fields: [
+        { id: "weeklyOverhead", label: "Weekly overhead (USD)", step: "100" },
         { id: "targetMargin", label: "Target margin (%)", step: "0.5" },
-        { id: "uncertaintyPct", label: "Uncertainty level (%)", step: "1" },
+        { id: "costUncertaintyPct", label: "Cost uncertainty (sigma %)", step: "1" },
+        { id: "durationUncertaintyPct", label: "Duration uncertainty (sigma %)", step: "1" },
+        { id: "correlation", label: "Cost–duration correlation", step: "0.05" },
         { id: "weatherSeverity", label: "Weather severity (1 = normal)", step: "0.1" },
+        { id: "seasonality", label: "Rain-season delay multiplier", step: "0.1" },
+        { id: "startMonth", label: "Construction start month", type: "select", step: "", options: C.nigeria.months.map(function (m, i) { return { value: String(i + 1), label: m }; }) },
         { id: "eventSeverity", label: "Event severity (1 = normal)", step: "0.1" },
         { id: "runs", label: "Monte Carlo runs", step: "100" },
         { id: "seed", label: "Seed", step: "1" }
@@ -63,19 +89,25 @@
     var groupsHtml = groups.map(function (g) {
       var fields = g.fields.map(function (f) {
         var v = inp[f.id] !== undefined ? inp[f.id] : (C.planningDefaults[f.id] !== undefined ? C.planningDefaults[f.id] : "");
+        if (f.type === "select") {
+          return '<div class="field"><label for="pl-' + f.id + '">' + esc(f.label) + '</label><select id="pl-' + f.id + '">' +
+            f.options.map(function (o) { return '<option value="' + esc(o.value) + '" ' + (String(v) === String(o.value) ? "selected" : "") + ">" + esc(o.label) + "</option>"; }).join("") +
+            "</select></div>";
+        }
         return '<div class="field"><label for="pl-' + f.id + '">' + esc(f.label) + '</label><input id="pl-' + f.id + '" type="' + (f.type || "number") + '" step="' + f.step + '" value="' + inputVal(f.id, v) + '"></div>';
       }).join("");
       return '<div class="form-section"><div class="form-section-head"><h3>' + esc(g.title) + '</h3><p class="small">' + esc(g.note) + "</p></div>" + '<div class="form-grid">' + fields + "</div></div>";
     }).join("");
 
     var base = MG.planning.baseModel(inp);
-    var env = C.calibration.benchmark.capexPerKW;
-    var marker = H.clamp(((base.capexPerKW - env.low) / (env.high - env.low)) * 100, 0, 100);
+    var checks = MG.planning.benchmarkChecks(inp, base);
+    var primary = checks.primary;
+    var marker = primary && primary.value !== null ? H.clamp(((primary.value - primary.low) / (primary.high - primary.low)) * 100, 0, 100) : 0;
 
     document.getElementById("screen-planning").innerHTML =
       U.topbar('<button class="btn ghost small" data-action="home">' + H.icon("arrow", 14) + ' Home</button><button class="btn ghost small" data-action="open-model">Model card</button><button class="btn ghost small" data-action="planning-pdf">' + H.icon("download", 14) + ' PDF analysis</button>') +
-      '<div class="planning-head"><div><p class="kicker">Planning mode · mini-grid reference class</p><h1>Size the uncertainty, not just the number.</h1>' +
-        '<p class="lede">A parametric Monte Carlo for early-stage Nigerian mini-grid planning. Change the assumptions, run the model, and read the range. <b>Level C evidence — indicative, not bankable.</b></p></div>' +
+      '<div class="planning-head"><div><p class="kicker">Planning mode · Nigeria reference class</p><h1>Size the uncertainty, not just the number.</h1>' +
+        '<p class="lede">A parametric Monte Carlo for early-stage Nigerian solar EPC planning. Change the assumptions, run the model, and read the range. <b>Level C evidence — indicative, not bankable.</b></p></div>' +
         '<div class="confidence-badge"><span>Confidence</span><b>C</b><span>Public benchmark + expert prior</span></div></div>' +
       '<div class="planning-grid">' +
         '<form class="panel planning-form" id="planning-form" onsubmit="return false"><div class="panel-head"><h3>Assumptions</h3><span class="small">All inputs editable</span></div>' + groupsHtml +
@@ -83,23 +115,27 @@
           '<button type="button" class="btn ghost small" data-action="planning-reset">Reset defaults</button></div>' +
           '<p class="small">Cost inputs are installed costs. Percentages are applied to the stated base. Changing an input does not change the training scenario.</p>' +
         "</form>" +
-        '<div class="planning-results-wrap"><div id="planning-results">' + (MG.app.planningResult ? "" : placeholder(base, env, marker)) + "</div></div>" +
+        '<div class="planning-results-wrap"><div id="planning-results">' + (MG.app.planningResult ? "" : placeholder(base, checks, marker, inp.targetMargin)) + "</div></div>" +
       "</div>";
     if (MG.app.planningResult) U.renderPlanningResults(MG.app.planningResult);
   };
 
-  function placeholder(base, env, marker) {
+  function placeholder(base, checks, marker, target) {
+    var primary = checks.primary;
+    var targetMargin = target === undefined ? C.planningDefaults.targetMargin : target;
+    var valueText = primary.value === null ? "n/a" : moneyExact(Math.round(primary.value)) + " " + primary.unit;
+    var rangeText = primary.low.toLocaleString("en-US") + "–" + primary.high.toLocaleString("en-US") + " " + primary.unit;
     return '<div class="panel"><div class="panel-head"><h3>Before you run</h3><span class="pill next">No simulation yet</span></div>' +
       '<p class="lede">The model samples costs, duration, weather, events, payment timing and financing together. It does not produce a single forecast; it produces a distribution you can defend.</p>' +
       '<div class="plan-mini-grid">' +
         '<div class="mini-stat"><span>Base CAPEX</span><b>' + money(base.capex) + '</b><div class="small">' + moneyExact(Math.round(base.capexPerKW)) + "/kW</div></div>" +
-        '<div class="mini-stat"><span>Base margin</span><b class="' + (base.margin < 0.12 ? "bad" : "good") + '">' + pct(base.margin) + '</b><div class="small">Before uncertainty</div></div>' +
-        '<div class="mini-stat"><span>Target</span><b>' + pct(C.planningDefaults.targetMargin) + '</b><div class="small">Commercial hurdle</div></div>' +
+        '<div class="mini-stat"><span>Base margin</span><b class="' + (base.margin < targetMargin ? "bad" : "good") + '">' + pct(base.margin) + '</b><div class="small">Before uncertainty, events and financing</div></div>' +
+        '<div class="mini-stat"><span>Target</span><b>' + pct(targetMargin) + '</b><div class="small">Commercial hurdle</div></div>' +
       '</div>' +
-      '<div class="benchmark"><div class="benchmark-top"><span>ESMAP reference envelope</span><span>$2,500–$4,500/kW</span></div>' +
+      '<div class="benchmark"><div class="benchmark-top"><span>' + esc(primary.label) + '</span><span>' + rangeText + '</span></div>' +
         '<div class="benchmark-track"><span class="benchmark-range"></span><i class="benchmark-marker" style="left:' + marker + '%"></i></div>' +
-        '<div class="small">Your base case is at ' + moneyExact(Math.round(base.capexPerKW)) + "/kW. Outside the envelope is a prompt to check scope, not a pass/fail grade.</div></div>" +
-      '<ul class="plan-bullets"><li>P10 / P50 / P90 cost, duration, margin and cash low point</li><li>Probability of overdraft breach, late completion and margin shortfall</li><li>Tornado sensitivity on the eight largest cost assumptions</li><li>Assumption register and calibration sources exported with every run</li></ul>' +
+        '<div class="small">Your base case is at ' + valueText + ". Outside the envelope is a prompt to check scope, not a pass/fail grade.</div></div>" +
+      '<ul class="plan-bullets"><li>P10 / P50 / P90 cost, duration, margin, cash low point and funding gap</li><li>Probability of overdraft breach, late completion and margin shortfall</li><li>Tornado sensitivity on the largest cost assumptions</li><li>Assumption register and calibration sources exported with every run</li></ul>' +
       '<div class="callout amber"><b>What this is not.</b> ' + esc(C.calibration.statement) + "</div></div>";
   }
 
@@ -109,7 +145,7 @@
       g.fields.forEach(function (f) {
         var el = document.getElementById("pl-" + f.id);
         if (!el) return;
-        if (f.type === "text") out[f.id] = el.value;
+        if (f.type === "text" || f.id === "benchmarkProfile") out[f.id] = el.value;
         else {
           var n = Number(el.value);
           out[f.id] = percentFields[f.id] ? n / 100 : n;
@@ -166,9 +202,19 @@
     var prob = r.probabilities;
     var inp = r.inputs;
     var target = inp.targetMargin || 0.12;
-    var env = C.calibration.benchmark.capexPerKW;
-    var capexPerKW = p.capex.p50 / Math.max(1, inp.capacityKWp);
-    var marker = H.clamp(((capexPerKW - env.low) / (env.high - env.low)) * 100, 0, 100);
+    var profile = C.calibration.benchmarkProfiles[inp.benchmarkProfile] || C.calibration.benchmarkProfiles.minigrid;
+    var sb = C.calibration.scenarioBenchmarks[profile.scenario];
+    var checks = r.benchmarkChecks;
+    var primary = checks.primary;
+    var p50Metric = sb.metric === "capexPerKWh" ? p.capex.p50 / Math.max(1, inp.bessKWh)
+      : sb.metric === "contractPerConnection" ? inp.contractValue / Math.max(1, inp.connections)
+      : p.capex.p50 / Math.max(1, inp.capacityKWp);
+    var marker = H.clamp(((p50Metric - primary.low) / (primary.high - primary.low)) * 100, 0, 100);
+    var benchRows = checks.map(function (c) {
+      var v = c.value === null ? "n/a" : (c.unit === "$/Wp" ? Number(c.value).toFixed(2) : moneyExact(Math.round(c.value))) + " " + c.unit;
+      var badge = c.status === "within" ? '<span class="pill live">Within</span>' : c.status === "n/a" ? '<span class="small">n/a</span>' : '<span class="tag-small">' + esc(c.status) + "</span>";
+      return "<tr><td><b>" + esc(c.label) + '</b><div class="small">' + esc(c.note) + "</div></td><td class=\"mono\">" + v + "</td><td>" + badge + "</td></tr>";
+    }).join("");
 
     var warnings = r.warnings.length ? '<div class="warn-list">' + r.warnings.map(function (w) { return '<div class="warn-item">' + H.icon("warn", 15) + "<span>" + esc(w) + "</span></div>"; }).join("") + "</div>" : '<div class="callout green"><b>No automatic red flags.</b> Check the assumptions before treating that as reassurance.</div>';
 
@@ -186,22 +232,32 @@
         planKpi("Margin", p.margin.p10, p.margin.p50, p.margin.p90, function (v) { return pct(v); }, p.margin.p50 < target ? "bad" : "good") +
         planKpi("Cash low point", p.cashLow.p10, p.cashLow.p50, p.cashLow.p90, money, p.cashLow.p50 < 0 ? "bad" : "good") +
       "</div>" +
+      '<div class="plan-kpis">' +
+        planKpi("Peak funding", p.peakFunding.p10, p.peakFunding.p50, p.peakFunding.p90, money, p.peakFunding.p50 > inp.overdraft ? "bad" : "good") +
+        planKpi("Funding gap", p.fundingGap.p10, p.fundingGap.p50, p.fundingGap.p90, money, p.fundingGap.p50 > 0 ? "bad" : "good") +
+        planKpi("Financing cost", p.financing.p10, p.financing.p50, p.financing.p90, money) +
+        planKpi("Retention tail", p.retention.p10, p.retention.p50, p.retention.p90, money) +
+      "</div>" +
+      '<p class="small" style="margin:-4px 0 12px">P10–P90 brackets the central 80% of outcomes. For cash low and funding gap, the P10 end is the adverse tail.</p>' +
       '<div class="prob-strip">' +
         '<div class="prob"><span>Overdraft breach</span><b class="' + (prob.insolvency > 0.15 ? "bad" : "") + '">' + pct(prob.insolvency, 0) + '</b><div class="bar"><i style="width:' + Math.min(100, prob.insolvency * 100) + '%;background:#f87171"></i></div></div>' +
+        '<div class="prob"><span>Funding gap</span><b class="' + (prob.fundingGap > 0.15 ? "bad" : "") + '">' + pct(prob.fundingGap, 0) + '</b><div class="bar"><i style="width:' + Math.min(100, prob.fundingGap * 100) + '%;background:#fb923c"></i></div></div>' +
         '<div class="prob"><span>Late vs target</span><b>' + pct(prob.late, 0) + '</b><div class="bar"><i style="width:' + Math.min(100, prob.late * 100) + '%;background:#fbbf24"></i></div></div>' +
         '<div class="prob"><span>Below target margin</span><b>' + pct(prob.belowTargetMargin, 0) + '</b><div class="bar"><i style="width:' + Math.min(100, prob.belowTargetMargin * 100) + '%;background:#a78bfa"></i></div></div>' +
+        '<div class="prob"><span>Loss-making</span><b>' + pct(prob.loss, 0) + '</b><div class="bar"><i style="width:' + Math.min(100, prob.loss * 100) + '%;background:#f87171"></i></div></div>' +
       "</div>" +
-      '<div class="benchmark"><div class="benchmark-top"><span>Implied CAPEX at P50</span><span>' + moneyExact(Math.round(capexPerKW)) + '/kW</span></div>' +
+      '<div class="benchmark"><div class="benchmark-top"><span>' + esc(primary.label) + ' · P50</span><span>' + moneyExact(Math.round(p50Metric)) + " " + esc(primary.unit) + '</span></div>' +
         '<div class="benchmark-track"><span class="benchmark-range"></span><i class="benchmark-marker" style="left:' + marker + '%"></i></div>' +
-        '<div class="small">ESMAP reference envelope $2,500–$4,500/kW. The model’s own output, not a validation.</div></div>' +
+        '<div class="small">' + esc(profile.label) + ' range ' + primary.low.toLocaleString("en-US") + "–" + primary.high.toLocaleString("en-US") + " " + esc(primary.unit) + ". The model’s own output, not a validation.</div></div>" +
       warnings +
+      '<details class="fold" open><summary>Benchmark cross-checks</summary><table class="data-table compact">' + benchRows + "</table></details>" +
       '<div class="chart-grid">' +
         histogramCard("Total cost distribution", r.histograms.totalCost, p.totalCost.p50, money, "#34d399") +
         histogramCard("Duration distribution", r.histograms.duration, p.duration.p50, function (v) { return "W" + Math.round(v); }, "#38bdf8") +
         histogramCard("Margin distribution", r.histograms.margin, p.margin.p50, function (v) { return pct(v); }, "#fbbf24") +
         tornadoCard(r.tornado) +
       "</div>" +
-      '<div class="result-foot"><div class="small">Target margin ' + pct(target) + " · modelled average event cost " + money(r.averages.eventCost) + " · modelled average delay damages " + money(r.averages.delayDamages) + ".</div>" +
+      '<div class="result-foot"><div class="small">Target margin ' + pct(target) + " · average event cost " + money(r.averages.eventCost) + " · delay damages " + money(r.averages.delayDamages) + " · financing " + money(r.averages.financing) + " · retention " + money(r.averages.retention) + ".</div>" +
         '<div class="confidence-inline">' + H.icon("info", 14) + " " + esc(r.confidence.label) + " · not backtested</div></div>" +
       '<details class="fold" open><summary>Base case build-up</summary><table class="data-table compact">' +
         "<tr><td>PV supply & install</td><td>" + moneyExact(r.base.pvCost) + "</td></tr>" +
@@ -210,9 +266,13 @@
         "<tr><td>Civil works</td><td>" + moneyExact(r.base.civil) + "</td></tr>" +
         "<tr><td>Engineering / PM</td><td>" + moneyExact(r.base.engineering) + "</td></tr>" +
         "<tr><td>Logistics & customs</td><td>" + moneyExact(r.base.logistics) + "</td></tr>" +
+        (r.base.importDuty ? "<tr><td>Import duty</td><td>" + moneyExact(r.base.importDuty) + "</td></tr>" : "") +
+        (r.base.fxLoss ? "<tr><td>FX loss on imported content</td><td>" + moneyExact(r.base.fxLoss) + "</td></tr>" : "") +
+        (r.base.bonds ? "<tr><td>Bonds / insurance</td><td>" + moneyExact(r.base.bonds) + "</td></tr>" : "") +
         "<tr><td>Development fixed</td><td>" + moneyExact(r.base.development) + "</td></tr>" +
         "<tr><td>Contingency</td><td>" + moneyExact(r.base.contingency) + "</td></tr>" +
         '<tr class="total-row"><td>Base CAPEX</td><td>' + moneyExact(r.base.capex) + "</td></tr>" +
+        (r.base.escalation ? "<tr><td>Escalation to target</td><td>" + moneyExact(r.base.escalation) + "</td></tr>" : "") +
         "<tr><td>Overhead to target</td><td>" + moneyExact(r.base.overhead) + "</td></tr>" +
         '<tr class="total-row"><td>Base cost</td><td>' + moneyExact(r.base.total) + "</td></tr>" +
         "<tr><td>Base margin</td><td>" + pct(r.base.margin) + "</td></tr>" +
@@ -227,16 +287,18 @@
   U.exportPlanning = function () {
     var r = MG.app.planningResult;
     if (!r || !r.ok) { U.toast("Run a simulation before exporting.", "warn"); return; }
+    var profile = C.calibration.benchmarkProfiles[r.inputs.benchmarkProfile] || C.calibration.benchmarkProfiles.minigrid;
     var out = {
       app: C.APP.title + " — " + C.APP.edition,
       version: C.APP.version,
       mode: "planning",
       generatedAt: r.generatedAt,
       country: "Nigeria",
-      referenceClass: "solar mini-grid, Nigeria, EPC + O&M",
+      referenceClass: profile ? profile.label + ", Nigeria, EPC + O&M" : "solar mini-grid, Nigeria, EPC + O&M",
       confidence: r.confidence,
       inputs: r.inputs,
       base: r.base,
+      benchmarkChecks: r.benchmarkChecks,
       percentiles: r.percentiles,
       probabilities: r.probabilities,
       averages: r.averages,

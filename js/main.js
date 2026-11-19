@@ -85,6 +85,7 @@
         var changedScenario = MG.app.setup.scenarioId !== id;
         MG.app.setup.scenarioId = id;
         MG.app.setup.difficulty = MG.prefs.getPath("simulation.defaultDifficulty", MG.app.setup.difficulty || "normal");
+        if (changedScenario) MG.app.setup.terms = null;
         if (changedScenario || !MG.app.setup.conditions) {
           MG.app.setup.conditions = C.nigeria.preset(sc.defaultPreset || "trainer");
         }
@@ -201,13 +202,36 @@
         var facEl = document.getElementById("facilitator-input");
         MG.app.setup.seed = seedEl ? Number(seedEl.value) || 20261117 : 20261117;
         MG.app.setup.facilitator = facEl ? facEl.checked : false;
+        function termNum(id, fallback) {
+          var node = document.getElementById(id);
+          if (!node || node.value === "") return fallback;
+          var n = Number(node.value);
+          return isFinite(n) ? n : fallback;
+        }
+        function termPct(id, fallback) { return termNum(id, fallback * 100) / 100; }
+        var cashNode = document.getElementById("term-cash");
+        var odNode = document.getElementById("term-overdraft");
+        var intensityNode = document.getElementById("term-event-intensity");
+        MG.app.setup.terms = {
+          advancePct: termPct("term-advance", 0),
+          retentionPct: termPct("term-retention", 0.05),
+          retentionReleaseWeeks: termNum("term-retention-release", 12),
+          paymentLagAdd: termNum("term-lag-add", 0),
+          interestAnnualPct: termPct("term-interest", 0.263),
+          ldCapPct: termPct("term-ld-cap", 0.10),
+          eventIntensity: intensityNode ? intensityNode.value : "normal",
+          productivity: termNum("term-productivity", 1),
+          startingCash: cashNode && cashNode.value !== "" ? Number(cashNode.value) : null,
+          overdraft: odNode && odNode.value !== "" ? Number(odNode.value) : null
+        };
         try {
           E.createTraining({
             scenarioId: MG.app.setup.scenarioId,
             difficulty: MG.app.setup.difficulty,
             seed: MG.app.setup.seed,
             facilitator: MG.app.setup.facilitator,
-            conditions: MG.app.setup.conditions || C.nigeria.defaults()
+            conditions: MG.app.setup.conditions || C.nigeria.defaults(),
+            terms: MG.app.setup.terms
           });
           MG.app.screen = "game";
           MG.app.phase = "development";

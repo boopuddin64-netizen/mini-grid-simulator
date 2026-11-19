@@ -1,6 +1,6 @@
 # Mini-Grid EPC Simulator — Nigeria Edition
 
-**v0.3.0 · November 2026 · static, offline-first**
+**v0.4.0 · November 2026 · static, offline-first**
 
 A build-free web app for corporate training and early-stage project planning of Nigerian
 solar mini-grid EPC delivery. It has two separate models:
@@ -11,7 +11,9 @@ solar mini-grid EPC delivery. It has two separate models:
   Nigeria-specific event set, plus staffing, procurement lead times, live operations,
   competency review, scoring and a facilitator console.
 - **Planning mode** — a parametric Monte Carlo that returns P10 / P50 / P90 ranges for
-  cost, duration, margin and cash low point, with a tornado and an assumption register.
+  cost, duration, margin, cash low point, peak funding, funding gap and retention tail,
+  with contract terms, financing, import duty, FX, escalation, weather seasonality, a
+  tornado and an assumption register.
 
 Both modes are **Level C evidence**: public benchmarks plus documented expert priors.
 They are indicative, not bankable.
@@ -47,7 +49,7 @@ No project or company data is sent anywhere.
 
 ---
 
-## What is in v0.3
+## What is in v0.4
 
 | Area | Included |
 | --- | --- |
@@ -57,11 +59,12 @@ No project or company data is sent anywhere.
 | Training content | 4 task networks (35 / 27 / 27 / 25 tasks), 4 team subsets (13 / 10 / 11 / 8 people), 26 events, scenario-specific milestones, 3 difficulty levels |
 | Competency model | 6 competencies rated 1–5, 5-band debrief profile, event-choice rubric and facilitator/self review |
 | Operating conditions | Grid setting, funding stack, community engagement, import route, FX cover, security context |
+| Advanced training terms | Advance, retention and release, certificate lag, annual interest, LD cap, event intensity, productivity, starting cash and overdraft overrides |
 | Working sections | Overview · Live ops · Delivery · Procurement · Team · Finance · Risk & compliance · Activity |
 | Interface | Dark / light / system theme, comfortable / compact density, motion preference |
-| Planning model | 2,000 runs by default, seeded, editable assumptions, tornado sensitivity |
-| Outputs | PDF training report, PDF planning analysis, JSON export, scored debrief with turning points |
-| Facilitation | Pause, step one week, reveal hidden state, inject an event, add cash, competency review |
+| Planning model | 2,000 runs by default, seeded, editable assumptions, separate cost/duration uncertainty, correlation, contract and cash controls, profile-aware benchmarks, tornado sensitivity |
+| Outputs | PDF training report, PDF planning analysis, JSON export, scored debrief with turning points, cash bridge and benchmark reconciliation |
+| Facilitation | Pause, step one week, reveal hidden state, inject an event, add cash, tune contract terms, competency review |
 
 ### A clearer working surface
 
@@ -89,7 +92,7 @@ card. It is not part of the project navigation.
 The player runs a fixed-price EPC or O&M contract through a weekly cycle:
 
 1. Choose one of the four playable Nigerian projects, the operating conditions, the
-   difficulty and the team at setup.
+   difficulty, the team and (optionally) advanced contract terms at setup.
 2. Assign available staff to ready tasks.
 3. Start or staff tasks; long-lead procurement orders run automatically after placement
    (30% deposit, balance on delivery, lead time independent of site progress).
@@ -98,8 +101,10 @@ The player runs a fixed-price EPC or O&M contract through a weekly cycle:
 5. Resolve events when they fire. Choices trade cash, schedule, quality, safety,
    compliance and stakeholder trust; each choice is later rated against a decision rubric.
 6. Certify milestones to release client cash, then complete commissioning and handover.
+   Interim certificates are reduced by retention and by any advance recovery; retention
+   releases after the final certificate.
 7. In the debrief, save a facilitator or self competency review and discuss the turning
-   points, scenario prompts and decision log.
+   points, scenario prompts, cash bridge and decision log.
 
 The dashboard shows only what a project team would know: cash, forecast, progress,
 staffing, dependencies, payment status and a project log. The facilitator console can
@@ -112,13 +117,37 @@ restarted or discarded.
 **Export.** Two output formats:
 
 - **PDF report** — a print-optimised A4 document with outcome, scenario focus, score,
-  operating conditions, financial summary, delivery performance, milestones, grants, cost
+  operating conditions, financial summary, contract terms, cash bridge, plan-versus-actual
+  variance, benchmark reconciliation, delivery performance, milestones, grants, cost
   ledger, task register, team deployment, Nigeria compliance map, competency profile,
   facilitator review, turning points, decision log, debrief lessons, risks and calibration
   sources. The browser print dialog produces the PDF.
-- **JSON debrief** — the scenario, difficulty, seed, conditions, grants, full state,
-  computed report, forecast, calibration statement and disclaimer. Suitable for a
-  facilitator archive or post-course review.
+- **JSON debrief** — the scenario, difficulty, seed, conditions, terms, advance, retention,
+  grants, full state, computed report, forecast, calibration statement and disclaimer.
+  Suitable for a facilitator archive or post-course review.
+
+### Advanced contract and facilitation terms
+
+The setup screen exposes the commercial mechanics that decide whether a good programme
+survives its own cash curve:
+
+| Term | Default | What it changes |
+| --- | --- | --- |
+| Advance | 0% | Paid at week 0, recovered proportionally from interim certificates |
+| Retention | 5% | Withheld from every certificate and released after the final certificate |
+| Retention release | 12 weeks | Delay between final certificate and retention cash |
+| Certificate lag add | 0 weeks | Extra client approval time on top of each milestone lag |
+| Interest | 26.3% p.a. | Effective rate charged on negative cash each week |
+| LD cap | 10% of contract | Delay damages stop accruing at this cap |
+| Event intensity | Normal | Low 18% weekly gate / 4-week cooldown; normal 28% / 3; high 38% / 2 |
+| Productivity | 1.00 | Crew output multiplier, 0.80–1.20 |
+| Starting cash / overdraft | Scenario default | Explicit overrides for cohort exercises |
+
+Training defaults use a 0% advance because the milestone library already contains a
+mobilisation milestone, so an advance would double-count early cash. Planning mode uses a
+10% advance as its reference term. Both are editable. Sessions store the selected terms;
+older v0.3 saves migrate with zero extra retention and zero advance so their cash
+behaviour is unchanged.
 
 ### Operating conditions
 
@@ -146,7 +175,7 @@ A grant tranche is cash, not EPC margin, and it arrives only when the trigger is
 
 Planning mode is deliberately separate from the training engine. It takes installed
 unit costs, contract terms, duration, payment lag and uncertainty, then samples cost,
-duration and event spend to produce ranges. Defaults for the reference project:
+duration and event spend to produce ranges. Reference defaults:
 
 | Input | Default |
 | --- | --- |
@@ -156,19 +185,33 @@ duration and event spend to produce ranges. Defaults for the reference project:
 | Civil works | 15% of hard cost |
 | Engineering / PM | 8% of hard cost |
 | Logistics | 6% of PV + BESS supply |
-| Development fixed | $120,000 |
+| Development fixed | $175,160 |
 | Contingency | 10% |
+| Import duty / FX / escalation / bonds | 0% (optional controls) |
+| Cost uncertainty (sigma) | 12% |
+| Duration uncertainty (sigma) | 20.25% |
+| Cost–duration correlation | 0.45 |
+| Construction start | January, normal rain seasonality |
+| Advance / retention / release | 10% / 5% / 12 weeks |
 | Payment lag | 3 weeks |
+| Interest rate | 26.3% p.a. effective |
+| Delay damages / cap | $12,500/week / 10% of contract |
 | Starting cash / overdraft | $275,000 / $500,000 |
-| Delay damages | $12,500/week |
 | Target margin | 12% |
 | Runs / seed | 2,000 / 20261117 |
 
 The results page always shows P10 and P90 around the P50, the probability of overdraft
-breach, late completion and margin shortfall, the implied CAPEX against the ESMAP
-reference envelope, and the model card. The PDF analysis adds the full assumption
-register, base case, percentile table, tornado, warnings and model limits. It never
+breach, a funding gap above the facility, late completion, margin shortfall and loss,
+peak funding, financing cost, retention tail, a profile-aware benchmark cross-check and
+the tornado. P10 and P90 bracket the central 80% of outcomes; they are not "good" and
+"bad" labels. For cash low and funding gap, the P10 tail is the adverse one. The PDF
+analysis adds the full assumption register, base case build-up, contract terms, cash
+bridge, percentile table, benchmark reconciliation, warnings and model limits. It never
 presents a single-point forecast as a commitment.
+
+Three benchmark profiles are available: **Mini-grid EPC** ($2,500–$4,500/kWp),
+**Rooftop C&I EPC** ($900–$1,600/kWp) and **Storage retrofit EPC** ($600–$1,100/kWh).
+They change the primary sanity check, not the cost model itself.
 
 ---
 
@@ -216,6 +259,8 @@ project and conditions.
 | Stakeholder | 10% |
 
 Grades: **S** ≥ 90, **A** ≥ 80, **B** ≥ 70, **C** ≥ 60, **D** ≥ 50, **F** < 50.
+The weighted score is capped at **D** for a hard-stop or abandoned run, and at **F** for
+insolvency or an unsafe compliance outcome, however strong the partial delivery looked.
 
 The competency profile is a separate training aid, not part of the delivery score. Six
 competencies — planning and sequencing, commercial and cash discipline, technical
@@ -224,9 +269,12 @@ uncertainty — are rated 1–5 by a facilitator or by self-assessment. Event ch
 also rated against a decision-quality rubric (strong, sound, mixed, weak, harmful), and
 the debrief highlights the turning points that changed the run.
 
-Payment milestones are scenario-specific. Gidan Sama uses nine client certificates; the
-shorter projects use fewer, with their own lags and retention positions. Certificates
-clear one to three weeks after certification unless the scenario says otherwise.
+Payment milestones are scenario-specific. Gidan Sama uses eight interim certificates plus
+a separate retention release; the shorter projects use fewer, with their own lags. By
+default each interim certificate is
+reduced by 5% retention and by proportional recovery of any advance, then paid after its
+certificate lag. Retention is released 12 weeks after the final certificate. All of these
+terms can be changed at setup.
 
 ---
 
@@ -277,27 +325,31 @@ PDF export needs permission to open the print window.
 
 The model is **Level C** and must not be used for bid prices, investment approvals,
 lender submissions or regulatory filings. It has not been backtested against a held-out
-set of Nigerian mini-grid projects. Sources are public: ESMAP / World Bank, IRENA,
-NREL/NLR, IEA PVPS, LBNL, pvXchange, InfoLink and FIDIC practice, supplemented by
+set of Nigerian mini-grid projects. Sources are public: ESMAP / World Bank, RMI/GEAPP,
+IRENA, NREL, IEA PVPS, BNEF, CBN, pvXchange, InfoLink and FIDIC practice, supplemented by
 documented expert priors. No proprietary company data was used.
 
-Reference envelope used for sanity checks:
+Reference envelopes used for sanity checks:
 
-- Mini-grid CAPEX: $2,500–$4,500/kW all-in
-- Mini-grid LCOE: $0.30–$0.55/kWh
+- Scenario benchmarks: mini-grid $2,500–$4,500/kWp; rooftop C&I $900–$1,600/kWp;
+  storage retrofit $600–$1,100/kWh
+- Mini-grid CAPEX: $3,000–$6,000/kW (ESMAP 2022 reference class)
+- Mini-grid LCOE: $0.55–$0.85/kWh, median $0.66/kWh (ESMAP 2022)
 - Performance ratio: 78–85%
 - Module price: $0.09–$0.12/W spot; $0.14–$0.18/W landed Nigeria
-- Battery pack: $250–$350/kWh installed
+- Battery: $108/kWh pack; $180–$320/kWh installed in Nigeria
 
-The Planning page reports the model's own implied CAPEX next to this envelope. That is a
-plausibility check, not validation.
+The Planning page reports the model's own implied metric against the selected profile.
+That is a plausibility check, not validation.
 
 ### Known calibration gap: training vs planning margin
 
 The two models answer different questions and do not produce the same margin:
 
-- **Planning P50** for the defaults is roughly **8% margin**, with a cash low point near
-  **–$413k**, a **15%** chance of overdraft breach and a **53%** chance of finishing late.
+- **Planning P50** for the reference defaults is roughly **6.5% margin**, with a cash low
+  point near **–$26k**, a **6%** chance of a funding gap above the overdraft and a **56%**
+  chance of finishing late. The 10% planning advance materially improves the median cash
+  position; set it to 0% to see the harsher training-like profile.
 - **Training** outcomes vary by scenario and play quality. On normal difficulty the four
   projects currently cluster between roughly **–5% and 13% margin**, with overdraft
   breaches on event-heavy or poorly sequenced runs. The scenario target margins are
@@ -313,10 +365,11 @@ version.
 ### Event pacing
 
 Random events use a 28% weekly gate with a 3-week cooldown after the previous random
-event. Fixed-date events still fire. A typical longer run resolves roughly 8–12 events.
-Event effects are scaled by difficulty, category weights are adjusted by the selected
-operating conditions, and scenario-specific events are only eligible in their own
-project.
+event by default. The setup screen offers **Low** (18% / 4 weeks), **Normal** (28% / 3)
+and **High** (38% / 2). Fixed-date and milestone events still fire at their own triggers.
+A typical longer run resolves roughly 8–12 events on normal. Event effects are scaled by
+difficulty and contract size, category weights are adjusted by the selected operating
+conditions, and scenario-specific events are only eligible in their own project.
 
 ---
 
@@ -341,7 +394,7 @@ js/content-nigeria.js             operating conditions, presets, regulatory map,
 js/prefs.js                       local profile, theme, density, motion preferences
 js/engine.js                      state, weekly tick, delays, auto orders, cash, grants, save
 js/engine-report.js               forecast, scoring, grades, lessons, report metadata
-js/planning.js                    Monte Carlo, percentiles, tornado, cash model
+js/planning.js                    Monte Carlo, percentiles, cash bridge, profile benchmarks, tornado
 js/export.js                      structured print-first training and planning HTML/PDF
 js/ui.js                          landing, setup, report, shared helpers, model card
 js/ui-game.js                     app shell, eight sections, live ops, modals, facilitator
@@ -360,13 +413,23 @@ from `index.html`.
 
 ---
 
-## QA status (v0.3.0)
+## QA status (v0.4.0)
 
-Checked in Chromium through the local server:
+Checked in Chromium through the local server and with Node-based model harnesses:
 
 - Landing, setup and all four playable projects, including project switching, default
   condition presets, effective starting cash, overdraft, team subset, exercises, focus
   chips and hard-stop week.
+- Advanced setup terms round-trip into the session: 10% advance, 7.5% retention, 16-week
+  release, +2 weeks certificate lag, 26.3% interest, 12% LD cap, high event intensity,
+  1.10 productivity and a $600k overdraft override all reached the engine. The resulting
+  advance, retention target and certificate deductions reconciled to the contract value.
+- Four-scenario engine harness: gross certificates reconcile to contract value, advance
+  recovery equals the advance, retention withheld equals the target and schema-2 sessions
+  autosave. A synthetic schema-1 save migrates with zero extra advance and retention.
+- Gidan Sama completed 35/35 tasks under an automated staffing run with 13 resolved
+  events. The final report, cash bridge, plan-vs-actual comparison, benchmark
+  reconciliation and PDF HTML build with no `undefined` or `NaN`.
 - Lagos training start, task assignment and start, weekly advance, event injection,
   event choice and outcome, report generation, competency review save and report rebuild.
 - Port Harcourt and Abuja setup defaults; the model's PH preset now starts with commercial
@@ -376,12 +439,23 @@ Checked in Chromium through the local server:
 - Completed Port Harcourt run: grade B, 27/27 tasks, 6 competency cards, 5 turning points
   and 4 rated decisions. Completed Abuja run: grade A, 25/25 tasks. Both reports and PDF
   HTML build cleanly with scenario-specific debrief prompts.
+- Insolvency run: grade capped at F, retention withheld shown separately from the
+  receivable, cash lesson present in the debrief, and the report and PDF HTML stay clean
+  of `undefined` and `NaN`.
 - Competency review stores ratings, note and reviewer locally, re-renders the report and
   preserves the selected values.
-- Planning form, 2,000-run simulation, results and PDF HTML; the A4 planning document has
-  no table overflow.
-- JSON export parses, carries version `0.3.0` and includes the scenario, condition labels,
-  full state, report and forecast.
+- Planning form, 2,000-run simulation, results, advanced contract/FX/duty/escalation
+  controls, benchmark profiles and PDF HTML. The default run returns P50 cost $2.71M,
+  P50 duration 62 weeks, P50 margin 6.5%, a $26k cash low point, a 6.1% funding-gap
+  probability and a 56% late probability; all five benchmark checks are within range.
+  A separate run with non-zero import duty, FX depreciation, escalation, bonds,
+  arrangement and commitment fees, 15% advance, 7.5% retention, a 20-week release, a
+  July start and explicit correlation returned finite values throughout. The A4
+  planning document has no table overflow.
+- Exports: training and planning PDF HTML build cleanly and include contract terms, cash
+  bridge, funding gap, plan-vs-actual and benchmark sections. Both JSON exports parse,
+  carry version `0.4.0` and include the scenario, terms, condition labels, full state,
+  report and forecast; the planning export keeps all five benchmark rows.
 - Mobile layout at a 390 px viewport: landing, setup, game dashboard, planning results and
   final report have no page-level horizontal overflow. The game section rail scrolls
   horizontally by design.

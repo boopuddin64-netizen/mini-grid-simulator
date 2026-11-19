@@ -11,7 +11,7 @@ MG.content = (function () {
   var APP = {
     title: "Mini-Grid EPC Simulator",
     edition: "Nigeria Edition",
-    version: "0.3.0",
+    version: "0.4.0",
     contentDate: "November 2026",
     currency: "USD",
     country: "Nigeria",

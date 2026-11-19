@@ -10,11 +10,20 @@
   function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
   function round(n) { return Math.round(n); }
   function uid(p) { return p + "_" + Math.random().toString(36).slice(2, 9); }
+  function pctText(n) { return (Math.round((Number(n) || 0) * 1000) / 10) + "%"; }
   function find(arr, id) { for (var i = 0; i < arr.length; i++) if (arr[i].id === id) return arr[i]; return null; }
   function teamMember(id) { return find(S.team, id); }
   function taskById(id) { return find(S.tasks, id); }
   function scenario() { return find(C.scenarios, S.scenarioId); }
   function diff() { return C.difficulties[S.difficulty] || C.difficulties.normal; }
+  function terms() {
+    return (S && S.terms) ? S.terms : C.trainingTerms.normalize(null, scenario());
+  }
+  function weeklyInterestRate() {
+    var annual = Math.max(0, terms().interestAnnualPct || 0);
+    var mult = (S && S.conditionEffects && S.conditionEffects.interestMult) ? S.conditionEffects.interestMult : 1;
+    return annual <= 0 ? 0 : Math.pow(1 + annual * mult, 1 / 52) - 1;
+  }
 
   function finalTaskId(tasks) {
     var depended = {};
@@ -55,8 +64,10 @@
     var taskLibrary = (sc.taskLibrary && sc.taskLibrary.length) ? sc.taskLibrary : C.tasks;
     var milestoneLibrary = (sc.milestones && sc.milestones.length) ? sc.milestones : C.milestones;
     var cashFactor = (sc.cashFactor === undefined ? 1 : sc.cashFactor);
+    var terms = C.trainingTerms.normalize(opts.terms, sc);
     var baseStartingCash = Math.round(d.startingCash * cashFactor);
-    var effectiveOverdraft = Math.round(d.overdraft * cashFactor);
+    var startingCash = terms.startingCash !== null ? terms.startingCash : baseStartingCash + (cEff.cash || 0);
+    var effectiveOverdraft = terms.overdraft !== null ? terms.overdraft : Math.round(d.overdraft * cashFactor);
     var hardStopWeek = Math.max(52, (sc.targetWeeks || 60) + 16);
 
     var tasks = taskLibrary.map(function (t) {
@@ -99,8 +110,63 @@
       };
     }) : [];
 
+    /* Payment terms: strip any legacy retention milestone, gross the remaining
+       certificates to 100%, then withhold retention proportionally. This keeps
+       contract cash equal to 100%: net certificates + retention release. */
+    var rawMilestones = JSON.parse(JSON.stringify(milestoneLibrary));
+    var retentionIndex = -1;
+    rawMilestones.forEach(function (m, idx) {
+      if (/retention/i.test(m.id) || /retention/i.test(m.label)) retentionIndex = idx;
+    });
+    var grossMilestones = rawMilestones.filter(function (m, idx) { return idx !== retentionIndex; });
+    var grossPctTotal = grossMilestones.reduce(function (sum, m) { return sum + (m.pct || 0); }, 0) || 1;
+    var scale = 1 / grossPctTotal;
+    var advanceAmount = Math.round(sc.contractValue * terms.advancePct);
+    var retentionTarget = Math.round(sc.contractValue * terms.retentionPct);
+    var milestones = grossMilestones.map(function (m) {
+      var grossPct = (m.pct || 0) * scale;
+      return {
+        id: m.id,
+        label: m.label,
+        pct: grossPct,
+        originalPct: m.pct,
+        amount: 0,
+        grossAmount: Math.round(sc.contractValue * grossPct),
+        retentionAmount: Math.round(retentionTarget * grossPct),
+        advanceRecoveryAmount: Math.round(advanceAmount * grossPct),
+        trigger: m.trigger,
+        lag: m.lag,
+        status: "pending",
+        certifiedWeek: null,
+        paidWeek: null
+      };
+    });
+    /* Rounding each certificate independently can leave a dollar or two
+       unallocated. Put the residual on the final certificate so the cash
+       ledger reconciles exactly to the contract, retention and advance. */
+    function allocateResidual(field, target) {
+      if (!milestones.length) return;
+      var sum = milestones.reduce(function (acc, m) { return acc + m[field]; }, 0);
+      milestones[milestones.length - 1][field] += target - sum;
+    }
+    allocateResidual("grossAmount", sc.contractValue);
+    allocateResidual("retentionAmount", retentionTarget);
+    allocateResidual("advanceRecoveryAmount", advanceAmount);
+    milestones.forEach(function (m) {
+      m.amount = m.grossAmount - m.retentionAmount - m.advanceRecoveryAmount;
+    });
+    var retention = {
+      pct: terms.retentionPct,
+      target: retentionTarget,
+      withheld: 0,
+      released: 0,
+      releaseWeek: null,
+      status: terms.retentionPct > 0 ? "pending" : "none",
+      receivableId: null
+    };
+
     S = {
-      schema: 1,
+      schema: 2,
       mode: "training",
       scenarioId: sc.id,
       difficulty: d.id,
@@ -108,6 +174,7 @@
       rngState: seed | 0,
       conditions: conditions,
       conditionEffects: { costPct: cEff.costPct || 0, interestMult: cEff.interestMult || 1, eventBias: cEff.eventBias || {} },
+      terms: terms,
       facilitator: !!opts.facilitator,
       paused: false,
       finished: false,
@@ -118,9 +185,12 @@
       targetWeeks: sc.targetWeeks,
       hardStopWeek: hardStopWeek,
       contractValue: sc.contractValue,
-      startingCash: baseStartingCash + (cEff.cash || 0),
+      startingCash: startingCash,
       overdraft: effectiveOverdraft,
-      cash: baseStartingCash + (cEff.cash || 0),
+      cash: startingCash + advanceAmount,
+      cashLow: startingCash + advanceAmount,
+      cashLowWeek: 0,
+      advance: { pct: terms.advancePct, amount: advanceAmount, recovered: 0, paidWeek: 0 },
       grants: grants,
       grantTotal: grantTotal,
       grantReceived: 0,
@@ -135,9 +205,8 @@
       team: JSON.parse(JSON.stringify(sc.team || C.team)).map(function (m) { m.assignment = null; return m; }),
       stats: startStats,
       metrics: { task: 0, overhead: 0, financing: 0, events: 0, penalties: 0, rework: 0, facilitator: 0 },
-      milestones: JSON.parse(JSON.stringify(milestoneLibrary)).map(function (m) {
-        m.status = "pending"; m.certifiedWeek = null; m.paidWeek = null; m.amount = Math.round(sc.contractValue * m.pct); return m;
-      }),
+      milestones: milestones,
+      retention: retention,
       receivables: [],
       logs: [],
       history: [],
@@ -153,6 +222,8 @@
     refreshStatuses();
     log("info", "Project mobilised: " + sc.name + ". Baseline contract $" + sc.contractValue.toLocaleString() + ", target " + sc.targetWeeks + " weeks, " + d.label + " difficulty.");
     if (sc.focus && sc.focus.length) log("info", "Scenario focus: " + sc.focus.join(" · ") + ".");
+    log("info", "Contract terms: " + pctText(terms.advancePct) + " advance, " + pctText(terms.retentionPct) + " retention released " + terms.retentionReleaseWeeks + " weeks after the final certificate, " + pctText(terms.ldCapPct) + " delay-damages cap, " + pctText(terms.interestAnnualPct) + " annual financing.");
+    if (advanceAmount > 0) log("cash", "Advance payment received: +$" + advanceAmount.toLocaleString() + ". It is recovered proportionally from interim certificates.");
     log("info", "Operating conditions: " + C.nigeria.groups.map(function (g) {
       return g.label + " — " + (C.nigeria.findOption(g.id, conditions[g.id]) || {}).label;
     }).join("; ") + ".");
@@ -359,10 +430,24 @@
       if (!hit) return;
       m.status = "certified";
       m.certifiedWeek = S.week;
-      var due = S.week + m.lag;
-      S.receivables.push({ id: uid("rec"), label: m.label, amount: m.amount, dueWeek: due, paid: false });
-      log("cash", "Client certifies " + m.label + " (" + Math.round(m.pct * 100) + "%). $" + m.amount.toLocaleString() + " due in " + m.lag + " weeks.");
+      if (S.retention) S.retention.withheld += (m.retentionAmount || 0);
+      if (S.advance) S.advance.recovered += (m.advanceRecoveryAmount || 0);
+      var due = S.week + m.lag + (terms().paymentLagAdd || 0);
+      S.receivables.push({ id: uid("rec"), label: m.label, amount: m.amount, dueWeek: due, paid: false, kind: "certificate" });
+      log("cash", "Client certifies " + m.label + " (" + pctText(m.pct) + " gross). $" + m.amount.toLocaleString() + " net due in " + (m.lag + (terms().paymentLagAdd || 0)) + " weeks; $" + (m.retentionAmount || 0).toLocaleString() + " retained.");
     });
+    if (S.retention && S.retention.status === "pending" && S.milestones.length && S.milestones.every(function (m) { return m.status !== "pending"; })) {
+      var amount = S.retention.withheld;
+      S.retention.status = "scheduled";
+      S.retention.releaseWeek = S.week + (S.terms ? S.terms.retentionReleaseWeeks : 12);
+      if (amount > 0) {
+        S.receivables.push({
+          id: uid("rec"), label: "Retention release", amount: amount,
+          dueWeek: S.retention.releaseWeek, paid: false, kind: "retention"
+        });
+        log("cash", "Retention release scheduled: $" + amount.toLocaleString() + " due in week " + S.retention.releaseWeek + ".");
+      }
+    }
   }
 
   function payReceivables() {
@@ -371,9 +456,15 @@
       r.paid = true;
       r.paidWeek = S.week;
       S.cash += r.amount;
-      S.milestones.forEach(function (m) {
-        if (m.label === r.label && m.status === "certified") m.paidWeek = S.week;
-      });
+      if (r.kind === "retention") {
+        S.retention.released = r.amount;
+        S.retention.status = "released";
+        S.retention.releaseWeek = S.week;
+      } else {
+        S.milestones.forEach(function (m) {
+          if (m.label === r.label && m.status === "certified") m.paidWeek = S.week;
+        });
+      }
       log("cash", "Receipt: " + r.label + " +$" + r.amount.toLocaleString() + ".");
     });
   }
@@ -400,7 +491,7 @@
 
   function chargeInterest() {
     if (S.cash >= 0) return;
-    var interest = round(-S.cash * 0.0045 * (S.conditionEffects && S.conditionEffects.interestMult ? S.conditionEffects.interestMult : 1));
+    var interest = round(-S.cash * weeklyInterestRate());
     if (interest <= 0) return;
     S.cash -= interest;
     S.metrics.financing += interest;
@@ -409,7 +500,16 @@
 
   function chargeLDs() {
     if (S.week <= S.targetWeeks) return;
-    var ld = diff().ldPerWeek;
+    var cap = (S.contractValue || 0) * (terms().ldCapPct || 0);
+    var remaining = Math.max(0, cap - (S.metrics.penalties || 0));
+    var ld = Math.min(diff().ldPerWeek, remaining);
+    if (ld <= 0) {
+      if (!S.ldCappedLogged) {
+        S.ldCappedLogged = true;
+        log("warn", "Delay damages have reached the " + pctText(terms().ldCapPct) + " contract cap. Further delay is not charged in cash, but the client relationship still suffers.");
+      }
+      return;
+    }
     S.cash -= ld;
     S.metrics.penalties += ld;
     S.lastWeek.penalties += ld;
@@ -429,6 +529,7 @@
 
   function progressTasks() {
     var anyActive = false;
+    var productivity = (S.terms && S.terms.productivity) || 1;
     S.tasks.forEach(function (t) {
       if (t.status !== "active") return;
       if (!t.auto && (S.delayQueues[t.phase] || 0) > 0) return;
@@ -436,7 +537,8 @@
       t.activeWeeks = (t.activeWeeks || 0) + 1;
       var st = staffing(t);
       if (!t.auto && st.rate < 0.99) t.lowStaffWeeks = (t.lowStaffWeeks || 0) + 1;
-      t.progress = clamp(t.progress + st.rate / t.actualDuration, 0, 1);
+      var rate = t.auto ? st.rate : st.rate * productivity;
+      t.progress = clamp(t.progress + rate / t.actualDuration, 0, 1);
 
       if (!t.order && !t.auto) {
         var pay = (t.actualCost / t.actualDuration) * Math.min(1, st.rate);
@@ -561,10 +663,11 @@
       return fixed[0];
     }
 
-    /* Pace random events: a cooldown plus a weekly gate keeps the scenario
-       from becoming a wall of pop-ups. Fixed-date events still fire. */
-    if (S.lastRandomEventWeek !== null && S.week - S.lastRandomEventWeek < 3) return null;
-    if (rnd() > 0.28) return null;
+    /* Pace random events using the selected event-intensity profile. Fixed-date
+       events still fire, so the scenario spine is preserved. */
+    var intensity = C.trainingTerms.eventIntensity[(terms().eventIntensity || "normal")] || C.trainingTerms.eventIntensity.normal;
+    if (S.lastRandomEventWeek !== null && S.week - S.lastRandomEventWeek < intensity.cooldown) return null;
+    if (rnd() > intensity.chance) return null;
 
     var bias = (S.conditionEffects && S.conditionEffects.eventBias) || {};
     function weight(e) {
@@ -619,6 +722,12 @@
     return withRemaining.length ? withRemaining[0] : order[0];
   }
 
+  /* Event cash is authored around the $2.9m Gidan reference. Scale it to the
+     contract so a $1.2m O&M mandate is not hit with a mini-grid-sized bill. */
+  function eventCashScale() {
+    return clamp((S.contractValue || 2900000) / 2900000, 0.5, 1.5);
+  }
+
   function resolveEvent(choiceId) {
     if (!S || !S.pendingEvent) return { ok: false, error: "No pending event." };
     var ev = find(C.events, S.pendingEvent);
@@ -628,9 +737,10 @@
     var sev = diff().eventSeverity;
     var e = ch.effects || {};
     var notes = [];
+    var cashScale = eventCashScale();
 
     if (e.cash) {
-      var cash = e.cash < 0 ? round(e.cash * sev) : round(e.cash);
+      var cash = e.cash < 0 ? round(e.cash * sev * cashScale) : round(e.cash * cashScale);
       S.cash += cash;
       if (cash < 0) S.metrics.events += -cash;
       notes.push("cash " + (cash >= 0 ? "+" : "-") + "$" + Math.abs(cash).toLocaleString());
@@ -654,9 +764,10 @@
       }
     }
     if (e.revenue) {
-      S.revenueAdjust += e.revenue;
-      S.receivables.push({ id: uid("rec"), label: "Change order", amount: e.revenue, dueWeek: S.week + 6, paid: false });
-      notes.push("revenue +$" + e.revenue.toLocaleString());
+      var revenue = round(e.revenue * cashScale);
+      S.revenueAdjust += revenue;
+      S.receivables.push({ id: uid("rec"), label: "Change order", amount: revenue, dueWeek: S.week + 6, paid: false, kind: "change-order" });
+      notes.push("revenue +$" + revenue.toLocaleString());
     }
     ["quality", "safety", "stakeholder", "client", "compliance"].forEach(function (stat) {
       if (!e[stat]) return;
@@ -759,6 +870,7 @@
   function pushHistory() {
     if (!S) return;
     var forecast = MG.report ? MG.report.forecast(S) : null;
+    if (S.cashLow === undefined || S.cash < S.cashLow) { S.cashLow = round(S.cash); S.cashLowWeek = S.week; }
     S.history.push({
       week: S.week,
       cash: round(S.cash),
@@ -811,6 +923,8 @@
       forecast: f, defectRisk: S.defectRisk, prDelta: S.prDelta,
       delayQueue: S.delayQueue, delayQueues: S.delayQueues, pendingEvent: S.pendingEvent,
       stats: S.stats, metrics: S.metrics, peakOverdraft: round(S.peakOverdraft),
+      cashLow: round(S.cashLow || S.cash), cashLowWeek: S.cashLowWeek || 0,
+      terms: S.terms, retention: S.retention, advance: S.advance,
       events: S.eventsResolved.slice(), receivables: S.receivables.slice(),
       conditions: S.conditions, grants: (S.grants || []).slice(), grantReceived: round(S.grantReceived || 0)
     };
@@ -849,7 +963,7 @@
       var raw = localStorage.getItem(KEY);
       if (!raw) return null;
       var data = JSON.parse(raw);
-      if (!data || data.schema !== 1 || data.mode !== "training") return null;
+      if (!data || (data.schema !== 1 && data.schema !== 2) || data.mode !== "training") return null;
       return data;
     } catch (err) { return null; }
   }
@@ -866,6 +980,20 @@
     if (S.grantReceived === undefined) S.grantReceived = 0;
     if (S.grantTotal === undefined) S.grantTotal = 0;
     if (S.competencyReview === undefined) S.competencyReview = null;
+    if (!S.terms) {
+      /* v0.3 sessions keep their legacy milestone amounts and pay no extra
+         retention; the new terms only apply to sessions created from v0.4. */
+      S.terms = C.trainingTerms.normalize({ retentionPct: 0, advancePct: 0 }, scenario());
+    }
+    if (!S.retention) {
+      S.retention = { pct: S.terms.retentionPct || 0, target: 0, withheld: 0, released: 0, releaseWeek: null, status: (S.terms.retentionPct > 0 ? "pending" : "none") };
+    }
+    if (!S.advance) S.advance = { pct: S.terms.advancePct || 0, amount: 0, recovered: 0, paidWeek: null };
+    if (S.cashLow === undefined) {
+      S.cashLow = (S.history || []).reduce(function (low, h) { return Math.min(low, h.cash); }, S.cash);
+      S.cashLowWeek = (S.history || []).reduce(function (wk, h) { return h.cash <= S.cashLow ? h.week : wk; }, 0);
+    }
+    S.schema = 2;
     if (!S.hardStopWeek) {
       var sc = find(C.scenarios, S.scenarioId);
       S.hardStopWeek = Math.max(52, ((sc && sc.targetWeeks) || 60) + 16);
@@ -902,6 +1030,9 @@
       seed: S.seed,
       conditions: S.conditions,
       conditionLabels: C.nigeria.labels(S.conditions),
+      terms: S.terms,
+      advance: S.advance,
+      retention: S.retention,
       grants: S.grants || [],
       grantReceived: S.grantReceived || 0,
       calibration: { level: C.calibration.level, statement: C.calibration.statement },

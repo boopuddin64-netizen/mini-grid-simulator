@@ -49,7 +49,7 @@ cd "C:\Users\USER\Documents\Default Project"
 
 git init
 git add -A
-git commit -m "Mini-Grid EPC Simulator v0.3.0"
+git commit -m "Mini-Grid EPC Simulator v0.4.0"
 git branch -M main
 git remote add origin https://github.com/YOUR-USERNAME/YOUR-REPO.git
 git push -u origin main

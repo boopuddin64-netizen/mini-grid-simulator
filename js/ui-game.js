@@ -4,7 +4,7 @@
   var U = MG.ui;
   var C = MG.content;
   var H = U.helpers;
-  var esc = H.esc, money = H.money, moneyExact = H.moneyExact, pct = H.pct;
+  var esc = H.esc, money = H.money, moneyExact = H.moneyExact, pct = H.pct, pctTrim = H.pctTrim;
 
   function state() { return MG.engine.getState(); }
   function sc() {
@@ -280,7 +280,7 @@
       }).join("");
     } else {
       rows = pendingMilestones.slice(0, 3).map(function (m) {
-        return '<div class="receipt-row"><div><b>' + esc(m.label) + '</b><span>' + Math.round(m.pct * 100) + "% of contract</span></div><strong>" + moneyExact(m.amount) + "</strong></div>";
+        return '<div class="receipt-row"><div><b>' + esc(m.label) + '</b><span>' + pctTrim(m.pct) + " of contract</span></div><strong>" + moneyExact(m.amount) + "</strong></div>";
       }).join("");
     }
 
@@ -443,7 +443,7 @@
       "NEMSA certificate is a precondition to energisation — protect the commissioning window.",
       "Grant claims need connection evidence, verification access and a clean document trail.",
       "Cash runway is " + runway + " weeks at the current burn. Payroll runs whether work moves or not.",
-      nextMs ? "Next client milestone: " + nextMs.label + " (" + Math.round(nextMs.pct * 100) + "% of contract)." : "All client milestones certified."
+      nextMs ? "Next client milestone: " + nextMs.label + " (" + pctTrim(nextMs.pct) + " of contract)." : "All client milestones certified."
     ];
     window.__mgOpsTicker = tickerItems;
     window.__mgOpsTickIndex = 0;
@@ -527,7 +527,7 @@
       statCard({
         label: "Cash position", icon: "cash",
         value: money(s.cash), valueTone: s.cash < 0 ? "bad" : "",
-        note: s.cash < 0 ? "Overdraft active. Interest is accruing week by week." : runway + " weeks of payroll runway at current spend",
+        note: s.cash < 0 ? "Overdraft active. Interest is accruing week by week." + (f.fundingGap > 0 ? " Funding gap " + money(f.fundingGap) + "." : "") : runway + " weeks of payroll runway at current spend" + (f.fundingGap > 0 ? " · gap " + money(f.fundingGap) : ""),
         spark: H.sparkline(cashHistory, s.cash < 0 ? "#f87171" : "#34d399", 36)
       }) +
       statCard({
@@ -540,7 +540,7 @@
       statCard({
         label: "Projected finish", icon: "clock",
         value: "W" + f.projectedWeeks, valueTone: late > 0 ? "bad" : "good",
-        note: late > 0 ? late + (late === 1 ? " week late" : " weeks late") + " vs target" : "On or ahead of the " + s.targetWeeks + "-week target",
+        note: (late > 0 ? late + (late === 1 ? " week late" : " weeks late") + " vs target" : "On or ahead of the " + s.targetWeeks + "-week target") + " · range W" + f.completionRange.p10 + "–W" + f.completionRange.p90,
         bar: scheduleBar, barColor: late > 0 ? "var(--red)" : "var(--cyan)"
       }) +
       statCard({
@@ -684,9 +684,10 @@
 
     var milestoneRows = s.milestones.map(function (m) {
       var st = milestoneStatus(m);
+      var retained = m.retentionAmount ? " · " + moneyExact(m.retentionAmount) + " retained" : "";
       return '<div class="milestone-item">' +
-        '<div class="milestone-copy"><b>' + esc(m.label) + '</b><span>' + Math.round(m.pct * 100) + "% · " + moneyExact(m.amount) + "</span></div>" +
-        '<span class="milestone-lag">' + (m.lag ? "Lag " + m.lag + "w" : "On certification") + "</span>" +
+        '<div class="milestone-copy"><b>' + esc(m.label) + '</b><span>' + pctTrim(m.pct) + " gross · " + moneyExact(m.amount) + " net" + retained + "</span></div>" +
+        '<span class="milestone-lag">' + ((m.lag + ((s.terms && s.terms.paymentLagAdd) || 0)) ? "Lag " + (m.lag + ((s.terms && s.terms.paymentLagAdd) || 0)) + "w" : "On certification") + "</span>" +
         '<span class="status-tag ' + st.key + '">' + st.label + "</span>" +
       "</div>";
     }).join("");
@@ -696,11 +697,13 @@
       return '<i class="milestone-seg ' + st.key + '" style="flex-grow:' + (m.pct * 100) + '" title="' + esc(m.label + " · " + st.label) + '"></i>';
     }).join("");
 
+    var retention = s.retention || { pct: 0, target: 0, withheld: 0, released: 0, status: "none", releaseWeek: null };
+    var terms = s.terms || {};
     return '<div class="stat-grid">' +
-      statCard({ label: "Contract value", icon: "cash", value: money(s.contractValue), note: "Fixed-price lump sum · 5% retention." }) +
+      statCard({ label: "Contract value", icon: "cash", value: money(s.contractValue), note: "Fixed-price lump sum · " + pctTrim(terms.retentionPct || 0) + " retention · " + pctTrim(terms.advancePct || 0) + " advance." }) +
       statCard({ label: "Forecast cost", icon: "chart", value: money(f.projectedCost), note: "Actual spend " + money(spentTotal(s)) + " to date." }) +
       statCard({ label: "Cash position", icon: "cash", value: money(s.cash), valueTone: s.cash < 0 ? "bad" : "", note: "Available liquidity " + money(liquidity) + "." }) +
-      statCard({ label: "Forecast margin", icon: "gauge", value: pct(f.projectedMargin), valueTone: f.projectedMargin >= (sc().targetMargin === undefined ? 0.12 : sc().targetMargin) ? "good" : f.projectedMargin >= 0 ? "warn" : "bad", note: "Target " + Math.round((sc().targetMargin === undefined ? 0.12 : sc().targetMargin) * 100) + "% · revenue " + money(f.revenue) + "." }) +
+      statCard({ label: "Forecast margin", icon: "gauge", value: pct(f.projectedMargin), valueTone: f.projectedMargin >= (sc().targetMargin === undefined ? 0.12 : sc().targetMargin) ? "good" : f.projectedMargin >= 0 ? "warn" : "bad", note: "Target " + Math.round((sc().targetMargin === undefined ? 0.12 : sc().targetMargin) * 100) + "% · clean base " + pct((C.scenarioEconomics(sc()) || {}).baseMargin || 0) + "." }) +
     "</div>" +
     '<div class="finance-grid">' +
       '<section class="card"><div class="card-head"><div><p class="eyebrow">Week by week</p><h2>Cash trend</h2></div><span class="count-pill">' + (cashHistory.length ? cashHistory.length + " weeks" : "No history") + "</span></div>" +
@@ -709,16 +712,20 @@
         '<div class="fact-grid">' +
           '<div><span>Overdraft limit</span><b>' + money(s.overdraft) + "</b></div>" +
           '<div><span>Peak drawn</span><b>' + money(s.peakOverdraft || 0) + "</b></div>" +
+          '<div><span>Cash low point</span><b>' + money(f.cashLow) + " · W" + f.cashLowWeek + "</b></div>" +
+          '<div><span>Funding gap</span><b class="' + (f.fundingGap > 0 ? "bad" : "") + '">' + money(f.fundingGap) + "</b></div>" +
           '<div><span>Runway</span><b>' + f.runwayWeeks + " weeks</b></div>" +
           '<div><span>Collected</span><b>' + money(collected) + "</b></div>" +
         "</div>" +
       "</section>" +
       '<section class="card"><div class="card-head"><div><p class="eyebrow">Actual spend</p><h2>Cost breakdown</h2></div><span class="count-pill">' + money(spentTotal(s)) + "</span></div>" +
         '<div class="cost-list">' + costRows + "</div>" +
-        '<p class="card-note">Cost to date excludes remaining task spend and future payroll. The forecast cost above includes both.</p>' +
+        '<div class="ops-cash" style="margin-top:10px"><span>Retention withheld</span><b>' + money(retention.withheld) + " / " + money(retention.target) + "</b></div>" +
+        '<div class="ops-cash"><span>Retention released</span><b>' + money(retention.released) + "</b></div>" +
+        '<p class="card-note">Retention releases ' + (terms.retentionReleaseWeeks || 0) + ' weeks after the final certificate. Cost to date excludes remaining task spend and future payroll.</p>' +
       "</section>" +
     "</div>" +
-    '<section class="card milestones-card"><div class="card-head"><div><p class="eyebrow">Nine certificates</p><h2>Payment milestones</h2><p class="card-sub">' + paidCount + " of " + s.milestones.length + " paid · " + money(collected) + " collected of " + money(s.contractValue) + '.</p></div><span class="count-pill">' + pct(s.contractValue ? collected / s.contractValue : 0, 0) + " collected</span></div>" +
+    '<section class="card milestones-card"><div class="card-head"><div><p class="eyebrow">' + s.milestones.length + ' certificates</p><h2>Payment milestones</h2><p class="card-sub">' + paidCount + " of " + s.milestones.length + " certificates paid · " + money(collected) + " collected of " + money(s.contractValue) + '. Retention is held back and released separately.</p></div><span class="count-pill">' + pct(s.contractValue ? collected / s.contractValue : 0, 0) + " collected</span></div>" +
       '<div class="milestone-strip">' + strip + "</div>" +
       '<div class="milestone-list">' + milestoneRows + "</div>" +
     "</section>";
@@ -1035,9 +1042,11 @@
     var queueText = Object.keys(queues).filter(function (k) { return queues[k] > 0; }).map(function (k) { return k + " " + queues[k] + "w"; }).join(", ") || "none";
     var html = '<table class="data-table compact" style="margin-top:10px">' +
       "<tr><td>Forecast margin</td><td>" + pct(f.projectedMargin) + "</td></tr>" +
-      "<tr><td>Projected finish</td><td>W" + f.projectedWeeks + "</td></tr>" +
+      "<tr><td>Projected finish</td><td>W" + f.completionRange.p10 + "–W" + f.completionRange.p50 + "–W" + f.completionRange.p90 + "</td></tr>" +
       "<tr><td>Cash</td><td>" + moneyExact(r.cash) + "</td></tr>" +
+      "<tr><td>Cash low / funding gap</td><td>" + moneyExact(f.cashLow) + " / " + moneyExact(f.fundingGap) + "</td></tr>" +
       "<tr><td>Peak overdraft</td><td>" + moneyExact(r.peakOverdraft) + "</td></tr>" +
+      "<tr><td>Retention held / released</td><td>" + moneyExact((r.retention && r.retention.withheld) || 0) + " / " + moneyExact((r.retention && r.retention.released) || 0) + "</td></tr>" +
       "<tr><td>Latent defect risk</td><td>" + Math.round(r.defectRisk * 100) + "%</td></tr>" +
       "<tr><td>Setback queues</td><td>" + queueText + "</td></tr>" +
       "<tr><td>Events resolved</td><td>" + r.events.length + "</td></tr>" +

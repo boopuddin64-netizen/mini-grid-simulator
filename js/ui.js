@@ -37,6 +37,7 @@
     return (n * 100).toFixed(digits === undefined ? 1 : digits) + "%";
   }
   function pctNum(n, digits) { return (Number(n) || 0).toFixed(digits === undefined ? 0 : digits) + "%"; }
+  function pctTrim(n) { return (Math.round((Number(n) || 0) * 1000) / 10) + "%"; }
   function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
   function icon(name, size) {
     var paths = {
@@ -116,7 +117,7 @@
     window.scrollTo(0, 0);
   }
 
-  U.helpers = { esc: esc, money: money, moneyExact: moneyExact, pct: pct, pctNum: pctNum, clamp: clamp, icon: icon, sparkline: sparkline, meter: meter };
+  U.helpers = { esc: esc, money: money, moneyExact: moneyExact, pct: pct, pctNum: pctNum, pctTrim: pctTrim, clamp: clamp, icon: icon, sparkline: sparkline, meter: meter };
   U.setScreen = setScreen;
   U.topbar = topbar;
 
@@ -209,8 +210,14 @@
     MG.app.setup.conditions = cond;
     var cEff = C.nigeria.effects(cond);
     var cashFactor = sc.cashFactor === undefined ? 1 : sc.cashFactor;
-    var effectiveCash = Math.round(d.startingCash * cashFactor) + (cEff.cash || 0);
-    var effectiveOverdraft = Math.round(d.overdraft * cashFactor);
+    var terms = C.trainingTerms.normalize(MG.app.setup.terms, sc);
+    MG.app.setup.terms = terms;
+    var effectiveCash = terms.startingCash !== null ? terms.startingCash : Math.round(d.startingCash * cashFactor) + (cEff.cash || 0);
+    var effectiveOverdraft = terms.overdraft !== null ? terms.overdraft : Math.round(d.overdraft * cashFactor);
+    var advanceAmount = Math.round(sc.contractValue * terms.advancePct);
+    var econ = C.scenarioEconomics(sc);
+    var benchValue = econ && econ.benchmarkValue !== null ? Math.round(econ.benchmarkValue).toLocaleString("en-US") + " " + econ.benchmark.unit : "n/a";
+    var benchRange = econ && econ.benchmark ? econ.benchmark.low.toLocaleString("en-US") + "–" + econ.benchmark.high.toLocaleString("en-US") + " " + econ.benchmark.unit : "";
     var grantTotal = Math.round((cEff.grantPerConnection || 0) * (sc.connections || 0));
     var diffButtons = Object.keys(C.difficulties).map(function (k) {
       var x = C.difficulties[k];
@@ -264,12 +271,35 @@
               '<div class="preset-row">' + presetButtons + "</div></div>" +
               '<div class="condition-grid">' + conditionFields + "</div>" +
               '<div class="condition-impact">' + impactChips + "</div></div>" +
+            (econ ? '<div class="brief-box"><h4>Clean-execution economics</h4><ul>' +
+              "<li><b>Direct task cost:</b> " + moneyExact(econ.taskCost) + " · <b>overhead at target:</b> " + moneyExact(econ.overheadAtTarget) + "</li>" +
+              "<li><b>Base margin:</b> " + pct(econ.baseMargin) + " vs <b>target " + pct(econ.targetMargin) + "</b>. The target is a stretch commercial hurdle; events, financing and delay damages sit on top of this clean base.</li>" +
+              "<li><b>Benchmark:</b> " + esc(econ.benchmark.label) + " " + benchValue + " against " + benchRange + " <span class=\"small\">(sanity check, not a forecast)</span></li>" +
+              "<li><b>Payment:</b> " + pctTrim(terms.advancePct) + " advance · " + pctTrim(terms.retentionPct) + " retention held · " + pctTrim(terms.interestAnnualPct) + " p.a. financing · " + pctTrim(terms.ldCapPct) + " LD cap</li>" +
+              "</ul></div>" : "") +
             '<div class="field"><label>Difficulty</label><div class="seg">' + diffButtons + "</div>" +
               '<div class="hint">' + esc(d.blurb) + " Starting cash " + moneyExact(effectiveCash) + ", overdraft " + moneyExact(effectiveOverdraft) + ", delay damages " + moneyExact(d.ldPerWeek) + "/week after target.</div></div>" +
           "</div>" +
           "<div>" +
             '<div class="field"><label for="seed-input">Scenario seed</label><input id="seed-input" type="number" value="' + esc(MG.app.setup.seed) + '" min="1"><div class="hint">Same seed + same decisions = same event sequence. Useful for comparing cohorts.</div></div>' +
             '<label class="checkline"><input type="checkbox" id="facilitator-input" ' + (MG.app.setup.facilitator ? "checked" : "") + "> Enable facilitator controls</label>" +
+            '<details class="fold terms-box"><summary>Advanced contract, financing &amp; facilitation terms</summary>' +
+              '<div class="form-grid" style="margin-top:10px">' +
+                '<div class="field"><label for="term-advance">Advance (%)</label><input id="term-advance" type="number" min="0" max="30" step="1" value="' + Math.round(terms.advancePct * 100) + '"><div class="hint">Paid at mobilisation and recovered from certificates.</div></div>' +
+                '<div class="field"><label for="term-retention">Retention (%)</label><input id="term-retention" type="number" min="0" max="15" step="0.5" value="' + Math.round(terms.retentionPct * 1000) / 10 + '"><div class="hint">Withheld from every certificate.</div></div>' +
+                '<div class="field"><label for="term-retention-release">Retention release (weeks)</label><input id="term-retention-release" type="number" min="0" max="52" step="1" value="' + terms.retentionReleaseWeeks + '"><div class="hint">After the final certificate.</div></div>' +
+                '<div class="field"><label for="term-lag-add">Certificate lag add (weeks)</label><input id="term-lag-add" type="number" min="0" max="8" step="1" value="' + terms.paymentLagAdd + '"><div class="hint">Extra client approval time.</div></div>' +
+                '<div class="field"><label for="term-interest">Interest (annual %)</label><input id="term-interest" type="number" min="0" max="60" step="0.1" value="' + Math.round(terms.interestAnnualPct * 1000) / 10 + '"><div class="hint">Effective rate on negative cash.</div></div>' +
+                '<div class="field"><label for="term-ld-cap">LD cap (% of contract)</label><input id="term-ld-cap" type="number" min="0" max="30" step="0.5" value="' + Math.round(terms.ldCapPct * 1000) / 10 + '"><div class="hint">Delay damages stop at this cap.</div></div>' +
+                '<div class="field"><label for="term-event-intensity">Event intensity</label><select id="term-event-intensity">' +
+                  Object.keys(C.trainingTerms.eventIntensity).map(function (k) { var x = C.trainingTerms.eventIntensity[k]; return '<option value="' + k + '" ' + (k === terms.eventIntensity ? "selected" : "") + ">" + esc(x.label) + "</option>"; }).join("") +
+                '</select><div class="hint">Fixed scenario events still fire.</div></div>' +
+                '<div class="field"><label for="term-productivity">Productivity factor</label><input id="term-productivity" type="number" min="0.8" max="1.2" step="0.05" value="' + terms.productivity + '"><div class="hint">1.0 is the reference crew rate.</div></div>' +
+                '<div class="field"><label for="term-cash">Starting cash override (USD)</label><input id="term-cash" type="number" min="0" step="5000" value="' + (terms.startingCash === null ? "" : terms.startingCash) + '" placeholder="Scenario default: ' + effectiveCash + '"><div class="hint">Blank uses difficulty × scenario factor plus condition effects.</div></div>' +
+                '<div class="field"><label for="term-overdraft">Overdraft override (USD)</label><input id="term-overdraft" type="number" min="0" step="5000" value="' + (terms.overdraft === null ? "" : terms.overdraft) + '" placeholder="Scenario default: ' + effectiveOverdraft + '"><div class="hint">Blank uses difficulty × scenario factor.</div></div>' +
+              "</div>" +
+              '<div class="small" style="margin-top:8px">Advance ' + moneyExact(advanceAmount) + " is paid at week 0 and recovered proportionally. Retention " + moneyExact(Math.round(sc.contractValue * terms.retentionPct)) + " is released " + terms.retentionReleaseWeeks + " weeks after the final certificate.</div>" +
+            "</details>" +
             '<div class="brief-box" style="margin-top:14px"><h4>Starting team · ' + (sc.team || C.team).length + ' people · ' + moneyExact((sc.team || C.team).reduce(function (sum, m) { return sum + m.rate; }, 0)) + "/week</h4><div class=\"team-grid\">" + team + "</div></div>" +
             '<div class="brief-box"><h4>What this exercises</h4><ul>' + (sc.exercises || [
               "Five-phase EPC sequencing and dependency management",
@@ -363,7 +393,7 @@
         "</div>" +
         '<div class="kpi-grid report-kpis">' +
           '<div class="kpi"><span>Delivery score</span><b>' + r.scores.total + '<small>/100</small></b><div class="small">Weighted across five delivery dimensions</div></div>' +
-          '<div class="kpi"><span>Margin</span><b class="' + (r.financials.margin < ((r.scenario && r.scenario.targetMargin) || 0.12) ? "bad" : "good") + '">' + pct(r.financials.margin) + '</b><div class="small">' + money(r.financials.totalRevenue) + " revenue · " + money(r.financials.actualCost) + " cost · target " + Math.round(((r.scenario && r.scenario.targetMargin) || 0.12) * 100) + "%</div></div>" +
+          '<div class="kpi"><span>Margin</span><b class="' + (r.financials.margin < ((r.scenario && r.scenario.targetMargin) || 0.12) ? "bad" : "good") + '">' + pct(r.financials.margin) + '</b><div class="small">' + money(r.financials.totalRevenue) + " revenue · " + money(r.financials.actualCost) + " cost · target " + Math.round(((r.scenario && r.scenario.targetMargin) || 0.12) * 100) + "%" + (r.financials.benchmark ? " · clean base " + pct(r.financials.benchmark.baseMargin) : "") + "</div></div>" +
           '<div class="kpi"><span>Finish</span><b>' + (r.completed ? "W" + r.finishedWeek : "W" + r.finishedWeek) + '<small>/' + r.targetWeeks + " target</small></b><div class=\"small\">" + esc(r.delivery.done + "/" + r.delivery.total + " tasks complete") + "</div></div>" +
           '<div class="kpi"><span>Competency average</span><b>' + (r.competencyAverage || 0) + '<small>/100</small></b><div class="small">Decision quality ' + esc((r.decisionQuality && r.decisionQuality.label) || "—") + " · " + ((r.decisionQuality && r.decisionQuality.rated) || 0) + " events rated</div></div>" +
         "</div>" +
@@ -376,12 +406,22 @@
             "<tr><td>Actual cost</td><td>" + moneyExact(r.financials.actualCost) + "</td></tr>" +
             "<tr><td>Cost at completion (forecast)</td><td>" + moneyExact(r.financials.projectedCost) + "</td></tr>" +
             "<tr><td>Cash at close</td><td class=\"" + (r.financials.cashEnd < 0 ? "bad" : "") + "\">" + moneyExact(r.financials.cashEnd) + "</td></tr>" +
+            "<tr><td>Cash after receivables</td><td>" + moneyExact(r.financials.cashAfterReceivables) + "</td></tr>" +
+            "<tr><td>Cash low point</td><td class=\"" + (r.financials.cashLow < 0 ? "bad" : "") + "\">" + moneyExact(r.financials.cashLow) + " · W" + r.financials.cashLowWeek + "</td></tr>" +
+            "<tr><td>Funding gap above facility</td><td class=\"" + (r.financials.fundingGap > 0 ? "bad" : "") + "\">" + moneyExact(r.financials.fundingGap) + "</td></tr>" +
             "<tr><td>Peak overdraft</td><td>" + moneyExact(r.financials.peakOverdraft) + "</td></tr>" +
+            "<tr><td>Financing cost</td><td>" + moneyExact(r.financials.financingCost) + "</td></tr>" +
+            "<tr><td>Advance / recovered</td><td>" + moneyExact(r.financials.advanceAmount) + " / " + moneyExact(r.financials.advanceRecovered) + "</td></tr>" +
+            "<tr><td>Retention withheld</td><td>" + moneyExact(r.financials.retentionWithheld) + "</td></tr>" +
+            "<tr><td>Retention released</td><td>" + moneyExact(r.financials.retentionReleased) + "</td></tr>" +
             "<tr><td>Retention still receivable</td><td>" + moneyExact(r.financials.retentionReceivable) + "</td></tr>" +
+            (r.financials.planVsActual ? "<tr><td>Plan vs forecast cost</td><td class=\"" + (r.financials.planVsActual.costVariance > 0 ? "bad" : "good") + "\">" + (r.financials.planVsActual.costVariance > 0 ? "+" : "") + moneyExact(r.financials.planVsActual.costVariance) + "</td></tr>" : "") +
           "</table></div>" +
           '<div class="panel"><div class="panel-head"><h3>Delivery &amp; compliance</h3></div><table class="data-table">' +
             "<tr><td>Finish reason</td><td>" + esc(r.finishReason) + "</td></tr>" +
             "<tr><td>Tasks complete</td><td>" + r.delivery.done + " / " + r.delivery.total + "</td></tr>" +
+            (r.delivery.completionRange ? "<tr><td>Completion range</td><td>W" + r.delivery.completionRange.p10 + "–W" + r.delivery.completionRange.p90 + " <span class=\"small\">(P50 W" + r.delivery.completionRange.p50 + ")</span></td></tr>" : "") +
+            (r.financials.benchmark ? "<tr><td>Benchmark</td><td>" + esc(r.financials.benchmark.label) + " · " + Math.round(r.financials.benchmark.value).toLocaleString("en-US") + " " + esc(r.financials.benchmark.unit) + " <span class=\"tag-small\">" + esc(r.financials.benchmark.status) + "</span></td></tr>" : "") +
             "<tr><td>Events resolved</td><td>" + r.delivery.events + "</td></tr>" +
             "<tr><td>Quality score</td><td>" + r.stats.quality.toFixed(1) + "</td></tr>" +
             "<tr><td>Safety score</td><td>" + r.stats.safety.toFixed(1) + "</td></tr>" +

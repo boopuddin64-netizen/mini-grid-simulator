@@ -51,8 +51,47 @@
     return (m.task || 0) + (m.overhead || 0) + (m.financing || 0) + (m.events || 0) + (m.penalties || 0) + (m.rework || 0);
   }
 
+  /* Capacity check on top of the dependency chain. The engine does not
+     simulate future crew allocation, so this is a transparent lower bound:
+     if a role is already over-committed, the finish moves out. */
+  function resourceAdjustedWeeks(state) {
+    var critical = remainingWeeks(state);
+    var demand = {};
+    state.tasks.forEach(function (t) {
+      if (t.status === "done") return;
+      var roles = (t.roles || []).filter(function (r, i, a) { return a.indexOf(r) === i; });
+      if (!roles.length) return;
+      var crew = t.crew || roles.length;
+      var quotas = {};
+      if (crew <= roles.length) roles.forEach(function (r) { quotas[r] = 1; });
+      else {
+        var base = Math.floor(crew / roles.length);
+        var rem = crew % roles.length;
+        roles.forEach(function (r, i) { quotas[r] = base + (i < rem ? 1 : 0); });
+      }
+      var remain = Math.max(0.6, (t.actualDuration || t.duration || 1) * (1 - t.progress || 0));
+      roles.forEach(function (r) { demand[r] = (demand[r] || 0) + remain * quotas[r]; });
+    });
+    var supply = {};
+    state.team.forEach(function (m) { supply[m.role] = (supply[m.role] || 0) + 1; });
+    var capacity = critical;
+    Object.keys(demand).forEach(function (r) {
+      if (!supply[r]) return;
+      capacity = Math.max(capacity, Math.ceil((demand[r] / supply[r]) * 1.05));
+    });
+    var base = Math.max(critical, capacity);
+    return {
+      critical: critical,
+      capacity: capacity,
+      weeks: base,
+      p10: Math.max(critical, Math.ceil(base * 0.92)),
+      p90: Math.max(base, Math.ceil(base * 1.15) + 1)
+    };
+  }
+
   function forecast(state) {
-    var weeksRemaining = remainingWeeks(state);
+    var res = resourceAdjustedWeeks(state);
+    var weeksRemaining = res.weeks;
     var finishWeek = state.week + weeksRemaining;
     var remainingTaskCost = 0;
     state.tasks.forEach(function (t) {
@@ -62,25 +101,57 @@
     var futureOverhead = Math.round(weeksRemaining * weeklyOverhead(state));
     var diff = C.difficulties[state.difficulty] || C.difficulties.normal;
     var futureLdWeeks = Math.max(0, finishWeek - Math.max(state.week, state.targetWeeks));
-    var futureLds = futureLdWeeks * diff.ldPerWeek;
+    var cap = (state.contractValue || 0) * ((state.terms && state.terms.ldCapPct) || 0.10);
+    var futureLds = Math.min(futureLdWeeks * diff.ldPerWeek, Math.max(0, cap - (state.metrics.penalties || 0)));
     var actual = totalActualCost(state);
     var projectedCost = actual + remainingTaskCost + futureOverhead + futureLds;
     var revenue = state.contractValue + (state.revenueAdjust || 0);
     var projectedMargin = revenue > 0 ? (revenue - projectedCost) / revenue : 0;
+    var outstanding = (state.receivables || []).filter(function (r) { return !r.paid; });
+    var outstandingTotal = outstanding.reduce(function (s, r) { return s + r.amount; }, 0);
+    var retention = outstanding.filter(function (r) { return r.label === "Retention release"; }).reduce(function (s, r) { return s + r.amount; }, 0);
+    var cashLow = state.cashLow;
+    if (cashLow === undefined) {
+      cashLow = (state.history || []).reduce(function (low, h) { return Math.min(low, h.cash); }, state.cash);
+    }
+    var sc = C.scenarios.filter(function (x) { return x.id === state.scenarioId; })[0] || null;
+    var econ = C.scenarioEconomics ? C.scenarioEconomics(sc) : null;
+    var plannedCost = econ ? econ.totalAtTarget : null;
     return {
       weeksRemaining: weeksRemaining,
       projectedWeeks: finishWeek,
+      completionRange: {
+        p10: state.week + res.p10,
+        p50: finishWeek,
+        p90: state.week + res.p90,
+        criticalPathWeeks: res.critical,
+        capacityWeeks: res.capacity,
+        basis: "Dependency chain plus a role-capacity check and a documented +15% coordination tail."
+      },
       remainingTaskCost: Math.round(remainingTaskCost),
       futureOverhead: futureOverhead,
-      futureLds: futureLds,
+      futureLds: Math.round(futureLds),
       actualCost: Math.round(actual),
       projectedCost: Math.round(projectedCost),
       revenue: Math.round(revenue),
       projectedMargin: projectedMargin,
       cash: Math.round(state.cash),
+      cashLow: Math.round(cashLow),
+      cashLowWeek: state.cashLowWeek || 0,
+      fundingGap: Math.max(0, -Math.round(cashLow) - (state.overdraft || 0)),
+      outstandingReceivables: Math.round(outstandingTotal),
+      retentionReceivable: Math.round(retention),
+      cashAfterReceivables: Math.round(state.cash + outstandingTotal),
       runwayWeeks: state.cash < 0 ? 0 : Math.max(0, Math.floor(state.cash / Math.max(1, weeklyOverhead(state)))),
       constructionProgress: constructionProgress(state),
-      overallProgress: overallProgress(state)
+      overallProgress: overallProgress(state),
+      planVsActual: plannedCost === null ? null : {
+        plannedCost: Math.round(plannedCost),
+        costVariance: Math.round(projectedCost - plannedCost),
+        plannedMargin: econ.baseMargin,
+        marginVariance: projectedMargin - econ.baseMargin,
+        weeksVariance: finishWeek - state.targetWeeks
+      }
     };
   }
 
@@ -122,6 +193,10 @@
     var diff = C.difficulties[state.difficulty] || C.difficulties.normal;
     if (diff.scorePenalty) total = total / diff.scorePenalty;
     total = clamp(Math.round(total), 0, 100);
+    /* An unfinished or unsafe project cannot grade as competent, however good
+       the partial delivery looked. This keeps the debrief honest. */
+    if (state.finishReason === "insolvency" || state.stats.safety < 25 || state.stats.compliance < 25) total = Math.min(total, 49);
+    else if (state.finishReason !== "completed") total = Math.min(total, 59);
     var grade = C.grades[C.grades.length - 1];
     for (var i = 0; i < C.grades.length; i++) {
       if (total >= C.grades[i].min) { grade = C.grades[i]; break; }
@@ -273,10 +348,23 @@
     var margin = completed ? (revenue - f.actualCost) / revenue : f.projectedMargin;
     var done = state.tasks.filter(function (t) { return t.status === "done"; }).length;
     var outstanding = state.receivables.filter(function (r) { return !r.paid; });
-    var retention = outstanding.filter(function (r) { return r.label === "Retention release"; }).reduce(function (s, r) { return s + r.amount; }, 0);
+    var retention = f.retentionReceivable;
     var sc = C.scenarios.filter(function (x) { return x.id === state.scenarioId; })[0] || {};
     var capacity = sc.capacityKWp || 500;
     var annualMWh = capacity * 1900 * pr / 1000;
+    var econ = C.scenarioEconomics ? C.scenarioEconomics(sc) : null;
+    var benchmark = econ && econ.benchmark ? {
+      label: econ.benchmark.label,
+      metric: econ.benchmark.metric,
+      unit: econ.benchmark.unit,
+      value: econ.benchmarkValue,
+      low: econ.benchmark.low,
+      high: econ.benchmark.high,
+      status: econ.benchmarkValue === null ? "n/a" : econ.benchmarkValue < econ.benchmark.low ? "low" : econ.benchmarkValue > econ.benchmark.high ? "high" : "within",
+      note: econ.benchmark.note,
+      baseMargin: econ.baseMargin,
+      targetMargin: econ.targetMargin
+    } : null;
 
     var reasonLabel =
       state.finishReason === "completed" ? "Completed in week " + state.week + " against a " + state.targetWeeks + "-week target." :
@@ -318,11 +406,24 @@
         projectedCost: f.projectedCost,
         margin: margin,
         cashEnd: Math.round(state.cash),
+        cashAfterReceivables: f.cashAfterReceivables,
+        cashLow: f.cashLow,
+        cashLowWeek: f.cashLowWeek,
+        fundingGap: f.fundingGap,
         retentionReceivable: retention,
+        retentionWithheld: Math.round((state.retention && state.retention.withheld) || 0),
+        retentionReleased: Math.round((state.retention && state.retention.released) || 0),
         outstandingReceivables: Math.round(outstanding.reduce(function (s, r) { return s + r.amount; }, 0)),
         peakOverdraft: Math.round(state.peakOverdraft || 0),
         grantTotal: Math.round(state.grantTotal || 0),
-        grantReceived: Math.round(state.grantReceived || 0)
+        grantReceived: Math.round(state.grantReceived || 0),
+        advanceAmount: Math.round((state.advance && state.advance.amount) || 0),
+        advanceRecovered: Math.round((state.advance && state.advance.recovered) || 0),
+        financingCost: Math.round(state.metrics.financing || 0),
+        delayDamages: Math.round(state.metrics.penalties || 0),
+        terms: state.terms || null,
+        planVsActual: f.planVsActual,
+        benchmark: benchmark
       },
       technical: {
         pr: pr,
@@ -336,7 +437,8 @@
         total: state.tasks.length,
         events: state.eventsResolved.length,
         peakOverdraft: Math.round(state.peakOverdraft || 0),
-        onTime: state.week <= state.targetWeeks
+        onTime: state.week <= state.targetWeeks,
+        completionRange: f.completionRange
       },
       stats: JSON.parse(JSON.stringify(state.stats)),
       decisions: state.decisionLog.slice(),

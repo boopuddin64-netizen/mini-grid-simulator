@@ -172,7 +172,15 @@
       ["Margin", pct(r.financials.margin) + (finished ? " actual" : " projected")],
       ["PBG grant received", moneyExact(r.financials.grantReceived || 0)],
       ["Cash at close", moneyExact(r.financials.cashEnd)],
+      ["Cash after receivables", moneyExact(r.financials.cashAfterReceivables)],
+      ["Cash low point", moneyExact(r.financials.cashLow) + " · W" + r.financials.cashLowWeek],
+      ["Funding gap above facility", moneyExact(r.financials.fundingGap)],
       ["Peak overdraft", moneyExact(r.financials.peakOverdraft)],
+      ["Financing cost", moneyExact(r.financials.financingCost)],
+      ["Delay damages", moneyExact(r.financials.delayDamages)],
+      ["Advance paid / recovered", moneyExact(r.financials.advanceAmount) + " / " + moneyExact(r.financials.advanceRecovered)],
+      ["Retention withheld", moneyExact(r.financials.retentionWithheld)],
+      ["Retention released", moneyExact(r.financials.retentionReleased)],
       ["Receivables outstanding", moneyExact(r.financials.outstandingReceivables)],
       ["Retention receivable", moneyExact(r.financials.retentionReceivable)]
     ];
@@ -182,6 +190,34 @@
       ["Delay damages", moneyExact(metrics.penalties)], ["Rework", moneyExact(metrics.rework)],
       ["Facilitator adjustment", moneyExact(metrics.facilitator || 0)], ["Total recorded spend", moneyExact(spendTotal)]
     ];
+    var terms = state.terms || {};
+    var termsRows = [
+      ["Advance paid at mobilisation", pct(terms.advancePct || 0) + " · " + moneyExact(r.financials.advanceAmount)],
+      ["Retention withheld per certificate", pct(terms.retentionPct || 0) + " · held " + moneyExact((state.retention && state.retention.withheld) || 0)],
+      ["Retention release", Math.round(terms.retentionReleaseWeeks || 0) + " weeks after final certificate"],
+      ["Certificate payment lag", "Scenario lag +" + Math.round(terms.paymentLagAdd || 0) + " weeks"],
+      ["Interest on negative cash", (Math.round((terms.interestAnnualPct || 0) * 1000) / 10) + "% p.a. effective"],
+      ["Delay-damages cap", pct(terms.ldCapPct || 0) + " of contract value"],
+      ["Event intensity", esc((C.trainingTerms.eventIntensity[terms.eventIntensity] || C.trainingTerms.eventIntensity.normal).label)],
+      ["Crew productivity factor", Number(terms.productivity || 1).toFixed(2)]
+    ];
+    var pva = r.financials.planVsActual || null;
+    var planRows = pva ? [
+      ["Clean-execution plan cost", moneyExact(pva.plannedCost)],
+      ["Forecast cost at completion", moneyExact(r.financials.projectedCost)],
+      ["Cost variance against plan", (pva.costVariance > 0 ? "+" : "") + moneyExact(pva.costVariance)],
+      ["Clean plan margin", pct(pva.plannedMargin)],
+      ["Forecast margin", pct(r.financials.margin)],
+      ["Margin variance against plan", (pva.marginVariance > 0 ? "+" : "") + pct(pva.marginVariance)],
+      ["Schedule variance against target", (pva.weeksVariance > 0 ? "+" : "") + pva.weeksVariance + " weeks"]
+    ] : [];
+    var bench = r.financials.benchmark;
+    var benchRows = bench ? [
+      [esc(bench.label), moneyExact(bench.value) + " " + esc(bench.unit)],
+      ["Reference range", moneyExact(bench.low) + "–" + moneyExact(bench.high) + " " + esc(bench.unit)],
+      ["Position", esc(bench.status === "within" ? "Within reference range" : bench.status === "low" ? "Below reference range" : bench.status === "high" ? "Above reference range" : "Not applicable")],
+      ["Clean-execution base margin", pct(bench.baseMargin) + " vs target " + pct(bench.targetMargin)]
+    ] : [];
     var phaseRows = C.phases.map(function (p) {
       var tasks = state.tasks.filter(function (t) { return t.phase === p.id; });
       var done = tasks.filter(function (t) { return t.status === "done"; }).length;
@@ -191,7 +227,7 @@
       return [esc(p.name), done + " / " + tasks.length, Math.round(prog * 100) + "%", moneyExact(budget), moneyExact(actual)];
     });
     var milestoneRows = state.milestones.map(function (m) {
-      return [esc(m.label), Math.round(m.pct * 100) + "%", moneyExact(m.amount), esc(m.status), esc(m.certifiedWeek === null ? "—" : "W" + m.certifiedWeek), esc(m.paidWeek === null ? "—" : "W" + m.paidWeek)];
+      return [esc(m.label), pct(m.pct), moneyExact(m.amount), esc(m.status), esc(m.certifiedWeek === null ? "—" : "W" + m.certifiedWeek), esc(m.paidWeek === null ? "—" : "W" + m.paidWeek)];
     });
     var grantRows = (r.grants || []).map(function (g) {
       return [esc(g.label), moneyExact(g.amount), esc(g.status), esc(g.paidWeek === null ? "—" : "W" + g.paidWeek)];
@@ -267,6 +303,15 @@
       '<p class="note">Score total: <b>' + (r.scores ? r.scores.total : "—") + "/100</b>. Grade " + esc(grade.grade) + " — " + esc(grade.label) + ".</p></div><div>" +
       table(["Financial summary", "Value"], financeRows) + "</div></div>",
       "The financial view separates contract margin from grant cash. PBG receipts improve liquidity, not EPC margin.");
+
+    body += section("Contract terms and cash bridge", '<div class="two"><div>' +
+      table(["Term", "This run"], termsRows, "compact") +
+      '</div><div>' +
+      (planRows.length ? table(["Plan vs actual", "Value"], planRows, "compact") : '<p class="note">No clean-execution plan is available for this scenario.</p>') +
+      (benchRows.length ? '<h3>Benchmark reconciliation</h3>' + table(["Benchmark", "Value"], benchRows, "compact") : "") +
+      "</div></div>" +
+      '<p class="note">The cash bridge separates the construction low point from the post-completion tail. Retention and late certificates improve closing cash but do not fund the works.</p>',
+      "Advance, retention, payment lag, financing and delay-damages terms are recorded with the session and applied by the cash engine.");
 
     body += section("Operating conditions", conditionTable(state),
       "Selected at project setup. They change costs, durations, event weights and grant timing in the simulation engine.");
@@ -347,17 +392,29 @@
     var i = r.inputs;
     var p = r.percentiles;
     var b = r.base;
+    var profile = C.calibration.benchmarkProfiles[i.benchmarkProfile] || C.calibration.benchmarkProfiles.minigrid;
+    var sb = C.calibration.scenarioBenchmarks[profile.scenario];
+    var monthName = C.nigeria.months[Math.max(0, Math.min(11, Math.round(i.startMonth) - 1))];
     var inputs = [
-      ["Project", i.name], ["PV capacity", num(i.capacityKWp) + " kWp"], ["BESS", num(i.bessKWh) + " kWh"],
-      ["Connections", num(i.connections)], ["Contract value", moneyExact(i.contractValue)], ["Target duration", i.targetWeeks + " weeks"],
+      ["Project", i.name], ["Benchmark class", profile.label], ["PV capacity", num(i.capacityKWp) + " kWp"], ["BESS", num(i.bessKWh) + " kWh"],
+      ["Connections", num(i.connections)], ["Contract value", moneyExact(i.contractValue)], ["Target duration", i.targetWeeks + " weeks"], ["Construction start", monthName],
       ["PV unit cost", "$" + Number(i.pvUnitCost).toFixed(2) + "/Wp"], ["BESS unit cost", "$" + Number(i.bessUnitCost).toFixed(0) + "/kWh"],
       ["Network unit cost", "$" + Number(i.networkUnitCost).toFixed(0) + "/connection"], ["Civil", pct(i.civilPct)],
       ["Engineering", pct(i.engineeringPct)], ["Logistics", pct(i.logisticsPct)],
       ["Development fixed", moneyExact(i.developmentFixed)], ["Contingency", pct(i.contingencyPct)],
-      ["Weekly overhead", moneyExact(i.weeklyOverhead)], ["Payment lag", i.paymentLagWeeks + " weeks"],
+      ["Import duty", pct(i.importDutyPct)], ["FX exposure", pct(i.fxExposurePct) + " of imported package"],
+      ["Naira depreciation on exposure", pct(i.fxDepreciationPct)], ["Annual cost escalation", pct(i.escalationPct)],
+      ["Bonds / insurance", pct(i.bondsPct)], ["Weekly overhead", moneyExact(i.weeklyOverhead)],
+      ["Advance", pct(i.advancePct)], ["Retention", pct(i.retentionPct)],
+      ["Retention release", i.retentionReleaseWeeks + " weeks after final certificate"], ["Payment lag", i.paymentLagWeeks + " weeks"],
+      ["Interest rate", pct(i.interestAnnualPct) + " p.a."], ["Arrangement fee", pct(i.arrangementFeePct) + " of facility"],
+      ["Commitment fee", pct(i.commitmentFeePct) + " p.a. on undrawn"], ["Delay-damages cap", pct(i.ldCapPct) + " of contract"],
       ["Starting cash", moneyExact(i.startingCash)], ["Overdraft", moneyExact(i.overdraft)],
       ["Delay damages", moneyExact(i.ldPerWeek) + "/week"], ["Target margin", pct(i.targetMargin)],
-      ["Uncertainty", pct(i.uncertaintyPct)], ["Runs", num(i.runs)], ["Seed", i.seed]
+      ["Cost uncertainty (sigma)", Number(i.costUncertaintyPct).toFixed(2) + "%"], ["Duration uncertainty (sigma)", Number(i.durationUncertaintyPct).toFixed(2) + "%"],
+      ["Cost–duration correlation", Number(i.correlation).toFixed(2)], ["Weather severity", Number(i.weatherSeverity).toFixed(2)],
+      ["Rain-season multiplier", Number(i.seasonality).toFixed(2)], ["Event severity", Number(i.eventSeverity).toFixed(2)],
+      ["Runs", num(i.runs)], ["Seed", i.seed]
     ];
     var inputRows = [];
     for (var x = 0; x < inputs.length; x += 2) {
@@ -370,10 +427,14 @@
       ["Civil works", moneyExact(b.civil)],
       ["Engineering", moneyExact(b.engineering)],
       ["Logistics", moneyExact(b.logistics)],
+      ["Import duty", moneyExact(b.importDuty)],
+      ["FX loss on imported content", moneyExact(b.fxLoss)],
+      ["Bonds and insurance", moneyExact(b.bonds)],
       ["Development", moneyExact(b.development)],
       ["Contingency", moneyExact(b.contingency)],
       ["CAPEX", moneyExact(b.capex)],
       ["Overhead to completion", moneyExact(b.overhead)],
+      ["Escalation to target duration", moneyExact(b.escalation)],
       ["Total cost", moneyExact(b.total)],
       ["Revenue", moneyExact(b.revenue)],
       ["Margin", pct(b.margin)],
@@ -384,15 +445,31 @@
       ["Duration", p.duration.p10.toFixed(0) + " wk", p.duration.p50.toFixed(0) + " wk", p.duration.p90.toFixed(0) + " wk"],
       ["Margin", pct(p.margin.p10), pct(p.margin.p50), pct(p.margin.p90)],
       ["Cash low point", moneyExact(p.cashLow.p10), moneyExact(p.cashLow.p50), moneyExact(p.cashLow.p90)],
+      ["Peak funding need", moneyExact(p.peakFunding.p10), moneyExact(p.peakFunding.p50), moneyExact(p.peakFunding.p90)],
+      ["Funding gap above facility", moneyExact(p.fundingGap.p10), moneyExact(p.fundingGap.p50), moneyExact(p.fundingGap.p90)],
+      ["Cash at completion", moneyExact(p.cashAtCompletion.p10), moneyExact(p.cashAtCompletion.p50), moneyExact(p.cashAtCompletion.p90)],
+      ["Cash after tail receipts", moneyExact(p.cashEnd.p10), moneyExact(p.cashEnd.p50), moneyExact(p.cashEnd.p90)],
+      ["Financing cost", moneyExact(p.financing.p10), moneyExact(p.financing.p50), moneyExact(p.financing.p90)],
+      ["Retention released", moneyExact(p.retention.p10), moneyExact(p.retention.p50), moneyExact(p.retention.p90)],
       ["Performance ratio", pct(p.pr.p10), pct(p.pr.p50), pct(p.pr.p90)],
       ["CAPEX / kWp", moneyExact(p.capex.p10 / Math.max(1, i.capacityKWp)), moneyExact(p.capex.p50 / Math.max(1, i.capacityKWp)), moneyExact(p.capex.p90 / Math.max(1, i.capacityKWp))],
       ["Annual energy", num(p.annualMWh.p10) + " MWh", num(p.annualMWh.p50) + " MWh", num(p.annualMWh.p90) + " MWh"]
     ];
     var probRows = [
       ["Insolvency (cash below overdraft)", pct(r.probabilities.insolvency)],
+      ["Funding gap above facility", pct(r.probabilities.fundingGap)],
+      ["Cash goes negative", pct(r.probabilities.cashNegative)],
       ["Finishes below target margin", pct(r.probabilities.belowTargetMargin)],
+      ["Loss-making", pct(r.probabilities.loss)],
       ["Finishes late", pct(r.probabilities.late)]
     ];
+    var p50Metric = sb.metric === "capexPerKWh" ? p.capex.p50 / Math.max(1, i.bessKWh)
+      : sb.metric === "contractPerConnection" ? i.contractValue / Math.max(1, i.connections)
+      : p.capex.p50 / Math.max(1, i.capacityKWp);
+    var benchRows = r.benchmarkChecks.map(function (c) {
+      var v = c.value === null ? "n/a" : (c.unit === "$/Wp" ? Number(c.value).toFixed(2) : moneyExact(c.value)) + " " + c.unit;
+      return [esc(c.label), v, esc(c.low + "–" + c.high + " " + c.unit), esc(c.status)];
+    });
     var torRows = r.tornado.rows.map(function (row) {
       return [esc(row.label), pct(row.low), pct(row.high), pct(row.delta)];
     });
@@ -408,7 +485,7 @@
       '<div class="meta"><span>Connections</span><b>' + num(i.connections) + "</b></div>" +
       '<div class="meta"><span>Target</span><b>' + i.targetWeeks + " weeks</b></div>" +
       '<div class="meta"><span>Contract</span><b>' + moneyExact(i.contractValue) + "</b></div>" +
-      '<div class="meta"><span>Confidence</span><b>Level C</b></div>' +
+      '<div class="meta"><span>Benchmark</span><b>' + esc(profile.label) + "</b></div>" +
     "</div>";
 
     body += '<div class="kpi-grid">' +
@@ -416,6 +493,12 @@
       kpi("P50 duration", p.duration.p50.toFixed(0) + " wk", p.duration.p10.toFixed(0) + " – " + p.duration.p90.toFixed(0) + " weeks") +
       kpi("P50 margin", pct(p.margin.p50), pct(p.margin.p10) + " – " + pct(p.margin.p90), p.margin.p50 < i.targetMargin ? "warn" : "") +
       kpi("Insolvency probability", pct(r.probabilities.insolvency), "Overdraft " + moneyExact(i.overdraft), r.probabilities.insolvency > 0.15 ? "bad" : "") +
+    "</div>" +
+    '<div class="kpi-grid">' +
+      kpi("P50 cash low", moneyExact(p.cashLow.p50), "Peak funding " + moneyExact(p.peakFunding.p50), p.cashLow.p50 < 0 ? "warn" : "") +
+      kpi("P50 funding gap", moneyExact(p.fundingGap.p50), pct(r.probabilities.fundingGap) + " of runs above facility", p.fundingGap.p50 > 0 ? "bad" : "") +
+      kpi("P50 financing cost", moneyExact(p.financing.p50), pct(i.interestAnnualPct) + " p.a. effective") +
+      kpi("P50 retention tail", moneyExact(p.retention.p50), "Released " + i.retentionReleaseWeeks + " weeks after final certificate") +
     "</div>";
 
     body += '<div class="callout warn"><b>Indicative, not bankable.</b> ' + esc(r.confidence.statement) +
@@ -426,15 +509,33 @@
 
     body += section("Base case", '<div class="two"><div>' + table(["Cost line", "Amount"], baseRows) + "</div><div>" +
       '<h3>Probability lens</h3>' + table(["Event", "Probability"], probRows) +
-      '<h3>Reference envelope</h3>' + table(["Benchmark", "Range"], [
-        ["CAPEX", "$" + num(C.calibration.benchmark.capexPerKW.low) + "–$" + num(C.calibration.benchmark.capexPerKW.high) + "/kW"],
-        ["LCOE", "$" + C.calibration.benchmark.lcoe.low.toFixed(2) + "–$" + C.calibration.benchmark.lcoe.high.toFixed(2) + "/kWh"],
-        ["Performance ratio", pct(C.calibration.benchmark.performanceRatio.low, 0) + "–" + pct(C.calibration.benchmark.performanceRatio.high, 0)]
-      ]) + '<p class="note">' + esc(C.calibration.benchmark.capexPerKW.source) + ".</p>" +
+      '<h3>Benchmark reconciliation</h3>' + table(["Benchmark", "Value", "Range", "Status"], benchRows, "compact") +
+      '<p class="note">' + esc(sb.note) + " P50 position: " + moneyExact(p50Metric) + " " + esc(sb.unit) + ".</p>" +
       "</div></div>", "The deterministic base case is one point inside the distribution. Do not quote it as a forecast.");
 
+    body += section("Contract terms and cash bridge", '<div class="two"><div>' +
+      table(["Term", "Value"], [
+        ["Advance", pct(i.advancePct) + " · " + moneyExact(i.contractValue * i.advancePct)],
+        ["Retention", pct(i.retentionPct) + " · " + moneyExact(i.contractValue * i.retentionPct)],
+        ["Retention release", i.retentionReleaseWeeks + " weeks after final certificate"],
+        ["Certificate payment lag", i.paymentLagWeeks + " weeks"],
+        ["Interest on negative cash", pct(i.interestAnnualPct) + " p.a. effective"],
+        ["Arrangement fee", pct(i.arrangementFeePct) + " of facility"],
+        ["Commitment fee", pct(i.commitmentFeePct) + " p.a. on undrawn facility"],
+        ["Delay-damages cap", pct(i.ldCapPct) + " of contract"]
+      ], "compact") + "</div><div>" +
+      table(["Cash bridge", "P10", "P50", "P90"], [
+        ["Cash low point", moneyExact(p.cashLow.p10), moneyExact(p.cashLow.p50), moneyExact(p.cashLow.p90)],
+        ["Funding gap above facility", moneyExact(p.fundingGap.p10), moneyExact(p.fundingGap.p50), moneyExact(p.fundingGap.p90)],
+        ["Cash at completion", moneyExact(p.cashAtCompletion.p10), moneyExact(p.cashAtCompletion.p50), moneyExact(p.cashAtCompletion.p90)],
+        ["Cash after tail receipts", moneyExact(p.cashEnd.p10), moneyExact(p.cashEnd.p50), moneyExact(p.cashEnd.p90)]
+      ], "compact") +
+      '<p class="note">Average modelled financing cost ' + moneyExact(r.averages.financing) + "; average retention released " + moneyExact(r.averages.retention) + ". Tail receipts improve closing cash after completion; they do not fund the construction low point.</p>" +
+      "</div></div>",
+      "The cash model applies an explicit advance, seven interim certificates, retention and payment lag, then charges interest and fees on negative cash. The retention tail is undiscounted and does not fund the construction low point.");
+
     body += section("P10 / P50 / P90 outcomes", table(["Metric", "P10", "P50", "P90"], pctRows),
-      "P10 is the optimistic tail, P90 the pessimistic tail. A 12% target margin is only credible if the P90 case is acceptable to the client and lender.");
+      "P10 and P90 bracket the central 80% of outcomes. The tail direction depends on the metric: lower is better for cost, duration and funding, while higher is better for margin and cash. Read the cash-low P10 as the adverse tail, not the good case.");
 
     body += section("Sensitivity (tornado)", torRows.length ? table(["Driver", "Low margin", "High margin", "Range"], torRows) : '<p class="note">No sensitivity rows returned.</p>',
       "Drivers are ranked by the width of the margin range they create when flexed independently.");
@@ -442,8 +543,8 @@
     body += section("Warnings", r.warnings.length ? '<ul class="list">' + r.warnings.map(function (w) { return "<li>" + esc(w) + "</li>"; }).join("") + "</ul>" : '<div class="callout">No automatic red flags were raised. Review the assumptions before treating that as reassurance.</div>');
 
     body += section("Model card and limits", '<div class="two"><div>' +
-      '<p class="note"><b>What it models.</b> Installed unit costs, civil and engineering percentages, logistics, development, contingency, overhead, a weekly cash S-curve with milestone receipts and payment lag, financing interest, delay damages and event shocks. Monte Carlo sampling uses a correlated cost/duration draw.</p>' +
-      '<p class="note"><b>What it does not model.</b> Hourly dispatch, degradation, tax, VAT and duty detail, supplier quotations, real FX paths, security incidents, community dynamics, NERC/NEMSA processing time, or a full EPC programme.</p>' +
+      '<p class="note"><b>What it models.</b> Installed unit costs, civil and engineering percentages, logistics, development, contingency, import duty, FX exposure, escalation, bonds, overhead, a weekly cash S-curve with advance and milestone receipts, retention, payment lag, financing interest and fees, delay damages with a cap, and event shocks. Cost and duration are sampled with separate uncertainties and a correlation coefficient; weather delay is derived from the construction start month.</p>' +
+      '<p class="note"><b>What it does not model.</b> Hourly dispatch, degradation, tax, VAT detail, supplier quotations, real FX paths, security incidents, community dynamics, NERC/NEMSA processing time, or a full EPC programme.</p>' +
       "</div><div>" +
       '<p class="note"><b>Calibration level.</b> ' + esc(r.confidence.label) + ". " + esc(r.confidence.statement) + "</p>" +
       '<p class="note"><b>Use.</b> Corporate training, early screening and assumption testing. Not an investment case, tariff filing, lender model or substitute for due diligence.</p>' +
