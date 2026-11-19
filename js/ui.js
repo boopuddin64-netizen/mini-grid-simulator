@@ -101,7 +101,7 @@
       var y = h - ((v - min) / (max - min)) * (h - 4) - 2;
       return x.toFixed(1) + "," + y.toFixed(1);
     }).join(" ");
-    return '<svg class="spark" viewBox="0 0 ' + w + " " + h + '" preserveAspectRatio="none" style="color:' + (colour || "#34d399") + '"><polyline points="' + pts + '" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg>';
+    return '<svg class="spark" viewBox="0 0 ' + w + " " + h + '" preserveAspectRatio="none" style="color:' + (colour || "#6fa8ff") + '"><polyline points="' + pts + '" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg>';
   }
   function meter(label, value, colour, suffix) {
     var v = clamp(Number(value) || 0, 0, 100);
@@ -142,6 +142,7 @@
     var live = C.scenarios.filter(function (s) { return s.id === C.featuredScenarioId; })[0] || C.scenarios[0];
     var playable = C.scenarios.filter(function (s) { return s.status === "live"; });
     var taskCount = (live.taskLibrary || C.tasks).length;
+    var connectionPct = Math.max(8, Math.min(100, Math.round(((live.connections || 0) / 1600) * 100)));
     var scenarios = C.scenarios.map(function (s) {
       var locked = s.status !== "live";
       var scTasks = (s.taskLibrary || []).length;
@@ -167,15 +168,19 @@
       '<section class="hero">' +
         '<div class="hero-copy">' +
           '<p class="kicker">Solar EPC delivery · Nigeria only</p>' +
-          '<h1>Run the project <em>before</em> you run the project.</h1>' +
+          '<h1><span class="hero-serif">Run the project</span><span class="hero-blue">before you run it.</span></h1>' +
           '<p class="lede">A management-level simulator for solar EPC and O&amp;M delivery in Nigeria. Run a mini-grid, rooftop C&amp;I project, storage retrofit or O&amp;M turnaround: staff the team, sequence development and procurement, survive Apapa and the naira, and commission a plant the client will actually accept.</p>' +
           '<div class="hero-actions"><button class="btn primary" data-action="go-setup" data-scenario="gidan-sama">' + icon("play", 15) + ' Start training</button>' +
-          '<button class="btn amber" data-action="go-planning">' + icon("chart", 15) + ' Open planning mode</button></div>' +
+          '<button class="btn glass" data-action="go-planning">' + icon("chart", 15) + ' Open planning mode</button></div>' +
           '<p class="small" style="margin-top:14px">Training sessions save locally and resume. Planning mode shows ranges, assumptions and confidence — never a single “precise” number.</p>' +
         "</div>" +
         '<aside class="hero-panel">' +
-          '<div><span class="pill live">Featured scenario</span><h3 style="margin:12px 0 4px;font-size:20px">' + esc(live.name) + "</h3>" +
-          '<div class="small">' + esc(live.location) + " · " + esc(live.client) + "</div></div>" +
+          '<div class="console-bar"><span class="console-dot"></span><span>Project model · live preview</span><span class="console-clock">Level C</span></div>' +
+          '<div class="console-hero">' +
+            '<div class="console-gauge" style="--p:' + connectionPct + '"><div><b>' + (live.connections || 0).toLocaleString("en-US") + '</b><span>connections</span></div></div>' +
+            '<div><span class="pill live">Featured scenario</span><h3>' + esc(live.name) + "</h3>" +
+            '<div class="small">' + esc(live.location) + " · " + esc(live.client) + "</div></div>" +
+          "</div>" +
           '<div class="mini-facts">' +
             '<div class="fact"><b>' + live.capacityKWp + ' kWp</b><span>PV capacity</span></div>' +
             '<div class="fact"><b>' + (live.bessKWh >= 1000 ? (live.bessKWh / 1000).toFixed(1) + " MWh" : live.bessKWh + " kWh") + '</b><span>Battery storage</span></div>' +
@@ -324,11 +329,11 @@
     var r = state.report || MG.report.build(state);
     var grade = r.grade;
     var scoreRows = [
-      ["Schedule", r.scores.schedule, 0.25, "#34d399"],
-      ["Cost / margin", r.scores.cost, 0.25, "#fbbf24"],
-      ["Technical / PR", r.scores.technical, 0.25, "#38bdf8"],
-      ["Safety / compliance", r.scores.safety, 0.15, "#f87171"],
-      ["Stakeholder", r.scores.stakeholder, 0.10, "#a78bfa"]
+      ["Schedule", r.scores.schedule, 0.25, "#6fa8ff"],
+      ["Cost / margin", r.scores.cost, 0.25, "#f5c76b"],
+      ["Technical / PR", r.scores.technical, 0.25, "#69d5ff"],
+      ["Safety / compliance", r.scores.safety, 0.15, "#fb7f8e"],
+      ["Stakeholder", r.scores.stakeholder, 0.10, "#b197ff"]
     ].map(function (x) {
       return '<div class="score-row"><div class="score-label"><span>' + x[0] + '</span><span class="dim">' + Math.round(x[2] * 100) + "% weight</span></div>" +
         '<div class="score-value"><div class="bar"><i style="width:' + x[1] + '%;background:' + x[3] + '"></i></div><b>' + x[1] + "</b></div></div>";

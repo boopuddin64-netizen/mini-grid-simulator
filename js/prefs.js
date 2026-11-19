@@ -102,7 +102,7 @@
     document.documentElement.setAttribute("data-theme", theme);
     document.documentElement.setAttribute("data-theme-choice", choice);
     var meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", theme === "light" ? "#f5f8f3" : "#06110c");
+    if (meta) meta.setAttribute("content", theme === "light" ? "#eef3fb" : "#05080f");
   }
 
   function apply() {

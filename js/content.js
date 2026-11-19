@@ -22,11 +22,11 @@ MG.content = (function () {
   };
 
   var phases = [
-    { id: "development", name: "Development", short: "DEV", colour: "#34d399", blurb: "Land, community, permits and financial close." },
-    { id: "engineering", name: "Engineering", short: "ENG", colour: "#38bdf8", blurb: "Demand, design, protection and design freeze." },
-    { id: "procurement", name: "Procurement", short: "PROC", colour: "#a78bfa", blurb: "Long-lead equipment, customs and logistics." },
-    { id: "construction", name: "Construction", short: "CON", colour: "#fbbf24", blurb: "Civil, mounting, PV, BESS, network and metering." },
-    { id: "commissioning", name: "Commissioning & O&M", short: "CX", colour: "#f87171", blurb: "Testing, COD, training and reliability run." }
+    { id: "development", name: "Development", short: "DEV", colour: "#6fa8ff", blurb: "Land, community, permits and financial close." },
+    { id: "engineering", name: "Engineering", short: "ENG", colour: "#69d5ff", blurb: "Demand, design, protection and design freeze." },
+    { id: "procurement", name: "Procurement", short: "PROC", colour: "#b197ff", blurb: "Long-lead equipment, customs and logistics." },
+    { id: "construction", name: "Construction", short: "CON", colour: "#f5c76b", blurb: "Civil, mounting, PV, BESS, network and metering." },
+    { id: "commissioning", name: "Commissioning & O&M", short: "CX", colour: "#fb7f8e", blurb: "Testing, COD, training and reliability run." }
   ];
 
   var roles = {

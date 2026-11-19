@@ -240,11 +240,11 @@
       "</div>" +
       '<p class="small" style="margin:-4px 0 12px">P10–P90 brackets the central 80% of outcomes. For cash low and funding gap, the P10 end is the adverse tail.</p>' +
       '<div class="prob-strip">' +
-        '<div class="prob"><span>Overdraft breach</span><b class="' + (prob.insolvency > 0.15 ? "bad" : "") + '">' + pct(prob.insolvency, 0) + '</b><div class="bar"><i style="width:' + Math.min(100, prob.insolvency * 100) + '%;background:#f87171"></i></div></div>' +
-        '<div class="prob"><span>Funding gap</span><b class="' + (prob.fundingGap > 0.15 ? "bad" : "") + '">' + pct(prob.fundingGap, 0) + '</b><div class="bar"><i style="width:' + Math.min(100, prob.fundingGap * 100) + '%;background:#fb923c"></i></div></div>' +
-        '<div class="prob"><span>Late vs target</span><b>' + pct(prob.late, 0) + '</b><div class="bar"><i style="width:' + Math.min(100, prob.late * 100) + '%;background:#fbbf24"></i></div></div>' +
-        '<div class="prob"><span>Below target margin</span><b>' + pct(prob.belowTargetMargin, 0) + '</b><div class="bar"><i style="width:' + Math.min(100, prob.belowTargetMargin * 100) + '%;background:#a78bfa"></i></div></div>' +
-        '<div class="prob"><span>Loss-making</span><b>' + pct(prob.loss, 0) + '</b><div class="bar"><i style="width:' + Math.min(100, prob.loss * 100) + '%;background:#f87171"></i></div></div>' +
+        '<div class="prob"><span>Overdraft breach</span><b class="' + (prob.insolvency > 0.15 ? "bad" : "") + '">' + pct(prob.insolvency, 0) + '</b><div class="bar"><i style="width:' + Math.min(100, prob.insolvency * 100) + '%;background:var(--red)"></i></div></div>' +
+        '<div class="prob"><span>Funding gap</span><b class="' + (prob.fundingGap > 0.15 ? "bad" : "") + '">' + pct(prob.fundingGap, 0) + '</b><div class="bar"><i style="width:' + Math.min(100, prob.fundingGap * 100) + '%;background:var(--amber)"></i></div></div>' +
+        '<div class="prob"><span>Late vs target</span><b>' + pct(prob.late, 0) + '</b><div class="bar"><i style="width:' + Math.min(100, prob.late * 100) + '%;background:var(--amber)"></i></div></div>' +
+        '<div class="prob"><span>Below target margin</span><b>' + pct(prob.belowTargetMargin, 0) + '</b><div class="bar"><i style="width:' + Math.min(100, prob.belowTargetMargin * 100) + '%;background:var(--violet)"></i></div></div>' +
+        '<div class="prob"><span>Loss-making</span><b>' + pct(prob.loss, 0) + '</b><div class="bar"><i style="width:' + Math.min(100, prob.loss * 100) + '%;background:var(--red)"></i></div></div>' +
       "</div>" +
       '<div class="benchmark"><div class="benchmark-top"><span>' + esc(primary.label) + ' · P50</span><span>' + moneyExact(Math.round(p50Metric)) + " " + esc(primary.unit) + '</span></div>' +
         '<div class="benchmark-track"><span class="benchmark-range"></span><i class="benchmark-marker" style="left:' + marker + '%"></i></div>' +
@@ -252,9 +252,9 @@
       warnings +
       '<details class="fold" open><summary>Benchmark cross-checks</summary><table class="data-table compact">' + benchRows + "</table></details>" +
       '<div class="chart-grid">' +
-        histogramCard("Total cost distribution", r.histograms.totalCost, p.totalCost.p50, money, "#34d399") +
-        histogramCard("Duration distribution", r.histograms.duration, p.duration.p50, function (v) { return "W" + Math.round(v); }, "#38bdf8") +
-        histogramCard("Margin distribution", r.histograms.margin, p.margin.p50, function (v) { return pct(v); }, "#fbbf24") +
+        histogramCard("Total cost distribution", r.histograms.totalCost, p.totalCost.p50, money, "#6fa8ff") +
+        histogramCard("Duration distribution", r.histograms.duration, p.duration.p50, function (v) { return "W" + Math.round(v); }, "#69d5ff") +
+        histogramCard("Margin distribution", r.histograms.margin, p.margin.p50, function (v) { return pct(v); }, "#b197ff") +
         tornadoCard(r.tornado) +
       "</div>" +
       '<div class="result-foot"><div class="small">Target margin ' + pct(target) + " · average event cost " + money(r.averages.eventCost) + " · delay damages " + money(r.averages.delayDamages) + " · financing " + money(r.averages.financing) + " · retention " + money(r.averages.retention) + ".</div>" +

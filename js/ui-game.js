@@ -81,7 +81,7 @@
   function navLink(id, activeId, badges) {
     var meta = SECTIONS[id];
     var badge = badges[id];
-    return '<button class="rail-link ' + (activeId === id ? "active" : "") + '" data-action="game-nav" data-section="' + id + '"' + (activeId === id ? ' aria-current="page"' : "") + ">" +
+    return '<button class="rail-link ' + (activeId === id ? "active" : "") + '" data-action="game-nav" data-section="' + id + '" title="' + esc(meta.label) + '" aria-label="' + esc(meta.label) + '"' + (activeId === id ? ' aria-current="page"' : "") + ">" +
       '<span class="rail-ico">' + H.icon(meta.icon, 19) + "</span>" +
       '<span class="rail-label">' + meta.label + "</span>" +
       (badge ? '<span class="rail-badge tone-' + badge.tone + '">' + badge.text + "</span>" : "") +
@@ -131,6 +131,7 @@
   function workHead(s, scenario, meta, f, pending) {
     var late = f.projectedWeeks - s.targetWeeks;
     var disabled = (pending || s.paused) ? "disabled" : "";
+    var weekPct = Math.max(0, Math.min(100, Math.round((s.week / Math.max(1, s.targetWeeks)) * 100)));
     return '<div class="work-head">' +
       '<div class="work-copy">' +
         '<p class="eyebrow">' + esc(scenario.name) + " · Week " + s.week + " of " + s.targetWeeks + "</p>" +
@@ -138,6 +139,7 @@
         '<p class="work-sub">' + meta.sub + "</p>" +
       "</div>" +
       '<div class="work-actions">' +
+        '<div class="week-dial" style="--p:' + weekPct + '" title="Week ' + s.week + " of " + s.targetWeeks + " target weeks" + '" aria-label="Week ' + s.week + " of " + s.targetWeeks + '"><div><b>' + s.week + "</b><span>of " + s.targetWeeks + "</span></div></div>" +
         '<span class="schedule-chip ' + (late > 0 ? "late" : "on") + '">' + (late > 0 ? "+" + late + (late === 1 ? " week late" : " weeks late") : "On schedule") + "</span>" +
         '<button class="btn primary lg" data-action="advance" ' + disabled + ">Advance week " + H.icon("arrow", 15) + "</button>" +
         '<button class="btn lg" data-action="advance-4" ' + disabled + ">+4 weeks</button>" +
@@ -528,14 +530,14 @@
         label: "Cash position", icon: "cash",
         value: money(s.cash), valueTone: s.cash < 0 ? "bad" : "",
         note: s.cash < 0 ? "Overdraft active. Interest is accruing week by week." + (f.fundingGap > 0 ? " Funding gap " + money(f.fundingGap) + "." : "") : runway + " weeks of payroll runway at current spend" + (f.fundingGap > 0 ? " · gap " + money(f.fundingGap) : ""),
-        spark: H.sparkline(cashHistory, s.cash < 0 ? "#f87171" : "#34d399", 36)
+        spark: H.sparkline(cashHistory, s.cash < 0 ? "var(--red)" : "var(--ok)", 36)
       }) +
       statCard({
         label: "Forecast margin", icon: "chart",
         value: pct(f.projectedMargin), valueTone: marginTone,
         note: "Target " + Math.round(targetMargin * 100) + "% · forecast cost " + money(f.projectedCost),
         bar: marginBar,
-        barColor: marginTone === "good" ? "var(--green)" : marginTone === "warn" ? "var(--amber)" : "var(--red)"
+        barColor: marginTone === "good" ? "var(--ok)" : marginTone === "warn" ? "var(--amber)" : "var(--red)"
       }) +
       statCard({
         label: "Projected finish", icon: "clock",
@@ -673,7 +675,7 @@
       { label: "Overhead", value: s.metrics.overhead, colour: "var(--cyan)" },
       { label: "Financing", value: s.metrics.financing, colour: "var(--amber)" },
       { label: "Events", value: s.metrics.events, colour: "var(--red)" },
-      { label: "Delay damages", value: s.metrics.penalties, colour: "#fb7185" },
+      { label: "Delay damages", value: s.metrics.penalties, colour: "var(--red)" },
       { label: "Rework", value: s.metrics.rework, colour: "var(--violet)" }
     ];
     var maxCost = Math.max.apply(null, costItems.map(function (c) { return c.value; }).concat([1]));
@@ -707,7 +709,7 @@
     "</div>" +
     '<div class="finance-grid">' +
       '<section class="card"><div class="card-head"><div><p class="eyebrow">Week by week</p><h2>Cash trend</h2></div><span class="count-pill">' + (cashHistory.length ? cashHistory.length + " weeks" : "No history") + "</span></div>" +
-        '<div class="chart-box">' + H.sparkline(cashHistory, s.cash < 0 ? "#f87171" : "#34d399", 110) + "</div>" +
+        '<div class="chart-box">' + H.sparkline(cashHistory, s.cash < 0 ? "var(--red)" : "var(--ok)", 110) + "</div>" +
         '<div class="chart-foot"><span>Start ' + money(s.startingCash) + "</span><span>Now " + money(s.cash) + "</span></div>" +
         '<div class="fact-grid">' +
           '<div><span>Overdraft limit</span><b>' + money(s.overdraft) + "</b></div>" +
@@ -734,11 +736,11 @@
   /* ---------------- risk ---------------- */
   function renderRisk(s) {
     var statMeta = [
-      { key: "quality", label: "Quality", colour: "#38bdf8" },
-      { key: "safety", label: "Safety", colour: "#f87171" },
-      { key: "stakeholder", label: "Community trust", colour: "#34d399" },
-      { key: "client", label: "Client relationship", colour: "#fbbf24" },
-      { key: "compliance", label: "Compliance", colour: "#a78bfa" }
+      { key: "quality", label: "Quality", colour: "#69d5ff" },
+      { key: "safety", label: "Safety", colour: "var(--red)" },
+      { key: "stakeholder", label: "Community trust", colour: "var(--ok)" },
+      { key: "client", label: "Client relationship", colour: "#f5c76b" },
+      { key: "compliance", label: "Compliance", colour: "#b197ff" }
     ];
     var health = statMeta.map(function (m) {
       var value = s.stats[m.key];
@@ -867,7 +869,7 @@
     else if (!t.auto && t.status === "active" && rate < 0.99) progressNote = " · " + Math.round(rate * 100) + "% staffed";
     var phase = C.phases.filter(function (p) { return p.id === t.phase; })[0];
 
-    return '<article class="task-card status-' + t.status + '" style="--phase:' + (phase ? phase.colour : "#34d399") + '">' +
+    return '<article class="task-card status-' + t.status + '" style="--phase:' + (phase ? phase.colour : "#6fa8ff") + '">' +
       '<div class="task-top"><div class="task-title"><span class="phase-dot"></span><div><h3>' + esc(t.name) + '</h3><span class="task-phase">' + esc(phase ? phase.name : t.phase) + ((t.order || t.auto) ? " · Order" : "") + "</span></div></div>" +
         '<span class="status-tag ' + t.status + '">' + statusLabel + "</span></div>" +
       '<p class="task-desc">' + esc(t.desc) + "</p>" +

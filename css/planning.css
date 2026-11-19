@@ -81,10 +81,10 @@
 .tor-bar{position:absolute;top:1px;bottom:1px;border-radius:2px}
 .tor-bar.left{right:50%;border-radius:2px 0 0 2px}
 .tor-bar.right{left:50%;border-radius:0 2px 2px 0}
-.tor-bar.good{background:linear-gradient(90deg,rgba(52,211,153,.35),#34d399)}
-.tor-bar.left.good{background:linear-gradient(90deg,#34d399,rgba(52,211,153,.35))}
-.tor-bar.bad{background:linear-gradient(90deg,rgba(248,113,113,.35),#f87171)}
-.tor-bar.left.bad{background:linear-gradient(90deg,#f87171,rgba(248,113,113,.35))}
+.tor-bar.good{background:linear-gradient(90deg,color-mix(in srgb,var(--ok) 35%,transparent),var(--ok))}
+.tor-bar.left.good{background:linear-gradient(90deg,var(--ok),color-mix(in srgb,var(--ok) 35%,transparent))}
+.tor-bar.bad{background:linear-gradient(90deg,color-mix(in srgb,var(--red) 35%,transparent),var(--red))}
+.tor-bar.left.bad{background:linear-gradient(90deg,var(--red),color-mix(in srgb,var(--red) 35%,transparent))}
 .tor-value{font-size:8px;color:var(--dim);text-align:right;white-space:nowrap}
 
 /* ---------- results footer / folds ---------- */

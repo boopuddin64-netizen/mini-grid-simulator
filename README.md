@@ -293,8 +293,16 @@ server.
 - **Data & privacy** — open a saved session, print reports, export JSON, clear the
   session, reset preferences and see the local storage footprint.
 
-The interface uses CSS custom-property tokens (`css/theme.css`). The same components are
-used in both themes; the light theme is a paper/projector palette, not a separate build.
+The interface uses CSS custom-property tokens (`css/theme.css`) and a final spatial layer
+(`css/spatial.css`) loaded last. The same components are used in both themes; the light
+theme is a paper/projector palette, not a separate build.
+
+The visual system is a deep-navy console with translucent glass panels, thin cool borders,
+large rounded cards, a floating icon rail and a serif-italic / blue-sans hero pairing. Blue
+is the interface accent (navigation, primary actions, charts and focus), while green stays
+reserved for positive state (on schedule, ready, paid, within benchmark) and amber/red for
+warnings and adverse outcomes. Training and planning PDFs deliberately keep their separate
+print stylesheet so exported documents remain dark-on-paper.
 
 ---
 
@@ -378,6 +386,7 @@ conditions, and scenario-specific events are only eligible in their own project.
 ```
 index.html                        app shell and script/style order
 css/theme.css                     colour tokens, light/dark themes
+css/spatial.css                   spatial glass reskin layer, loaded last
 css/app.css                       global styles, landing, setup, settings
 css/game.css                      app shell, navigation, dashboard, live ops, game views
 css/report.css                    debrief, modals, facilitator, toast
@@ -458,8 +467,11 @@ Checked in Chromium through the local server and with Node-based model harnesses
   report and forecast; the planning export keeps all five benchmark rows.
 - Mobile layout at a 390 px viewport: landing, setup, game dashboard, planning results and
   final report have no page-level horizontal overflow. The game section rail scrolls
-  horizontally by design.
-- Light and dark themes; the browser console stayed clean during the checks.
+  horizontally by design. The planning assumptions header no longer sticks over the form
+  at narrow widths.
+- Light and dark themes were rechecked across landing, setup, game, planning, report,
+  settings, task/event modals and the model card; blue chrome, green success, amber warning
+  and red adverse states remain distinct, and the browser console stayed clean.
 - Content validation: all scenario task IDs, dependencies, roles, order options, milestone
   triggers and percentages, event-condition task IDs and event rubric entries are valid;
   no duplicate IDs; no missing team-role capacity.

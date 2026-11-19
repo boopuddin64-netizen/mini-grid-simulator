@@ -38,10 +38,10 @@ p{line-height:1.6}
 }
 .btn:hover{border-color:var(--green);background:var(--hover);transform:translateY(-1px)}
 .btn:active{transform:translateY(0)}
-.btn.primary{background:linear-gradient(180deg,#4ade80,#16a34a);color:#04140b;border:0;box-shadow:0 10px 28px rgba(34,197,94,.22)}
-.btn.primary:hover{background:linear-gradient(180deg,#6ee7a0,#22c55e);box-shadow:0 14px 34px rgba(34,197,94,.3)}
-[data-theme="light"] .btn.primary{background:linear-gradient(180deg,#35b47f,#0f8a5f);color:#fff;box-shadow:0 10px 24px rgba(15,138,95,.2)}
-[data-theme="light"] .btn.primary:hover{background:linear-gradient(180deg,#43c68f,#0b7651)}
+.btn.primary{background:linear-gradient(180deg,var(--green),var(--green-deep));color:var(--green-ink);border:0;box-shadow:0 10px 28px color-mix(in srgb,var(--green) 22%,transparent)}
+.btn.primary:hover{background:linear-gradient(180deg,color-mix(in srgb,var(--green) 78%,white),var(--green));box-shadow:0 14px 34px color-mix(in srgb,var(--green) 30%,transparent)}
+[data-theme="light"] .btn.primary{background:linear-gradient(180deg,#5c96f5,#2563eb);color:#fff;box-shadow:0 10px 24px rgba(37,99,235,.2)}
+[data-theme="light"] .btn.primary:hover{background:linear-gradient(180deg,#6ea6ff,#1d4ed8)}
 .btn.amber{background:linear-gradient(180deg,#fcd34d,#f59e0b);color:#1f1403;border:0;box-shadow:0 10px 26px rgba(245,158,11,.2)}
 [data-theme="light"] .btn.amber{background:linear-gradient(180deg,#e7ac35,#b77900);color:#fff}
 .btn.ghost{background:transparent;border-color:var(--line)}
@@ -55,11 +55,11 @@ p{line-height:1.6}
 .brand{display:flex;align-items:center;gap:12px;min-width:0}
 .logo{
   width:44px;height:44px;flex:none;border-radius:13px;display:grid;place-items:center;
-  background:linear-gradient(145deg,rgba(52,211,153,.26),rgba(16,185,129,.03));
-  border:1px solid rgba(52,211,153,.4);color:var(--green);
-  box-shadow:0 0 26px rgba(52,211,153,.12) inset;
+  background:linear-gradient(145deg,color-mix(in srgb,var(--green) 26%,transparent),color-mix(in srgb,var(--green) 3%,transparent));
+  border:1px solid color-mix(in srgb,var(--green) 40%,transparent);color:var(--green);
+  box-shadow:0 0 26px color-mix(in srgb,var(--green) 12%,transparent) inset;
 }
-[data-theme="light"] .logo{background:linear-gradient(145deg,rgba(15,138,95,.14),rgba(15,138,95,.02));border-color:rgba(15,138,95,.3);box-shadow:none}
+[data-theme="light"] .logo{background:linear-gradient(145deg,color-mix(in srgb,var(--green) 14%,transparent),color-mix(in srgb,var(--green) 2%,transparent));border-color:color-mix(in srgb,var(--green) 30%,transparent);box-shadow:none}
 .brand-name{font-size:16px;font-weight:750;letter-spacing:.2px}
 .brand-sub{font-size:10.5px;color:var(--muted);letter-spacing:1.1px;text-transform:uppercase;margin-top:2px}
 .nav-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
