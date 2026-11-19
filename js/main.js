@@ -81,10 +81,13 @@
       case "go-setup": {
         var id = el.getAttribute("data-scenario") || C.featuredScenarioId;
         var sc = C.scenarios.filter(function (x) { return x.id === id; })[0];
-        if (!sc || sc.status !== "live") { U.toast("This scenario is not playable in v0.1.", "warn"); return; }
+        if (!sc || sc.status !== "live") { U.toast("Kano utility-scale is a preview project and is not playable in this release.", "warn"); return; }
+        var changedScenario = MG.app.setup.scenarioId !== id;
         MG.app.setup.scenarioId = id;
         MG.app.setup.difficulty = MG.prefs.getPath("simulation.defaultDifficulty", MG.app.setup.difficulty || "normal");
-        if (!MG.app.setup.conditions) MG.app.setup.conditions = C.nigeria.defaults();
+        if (changedScenario || !MG.app.setup.conditions) {
+          MG.app.setup.conditions = C.nigeria.preset(sc.defaultPreset || "trainer");
+        }
         MG.app.screen = "setup";
         render();
         return;
@@ -177,7 +180,7 @@
         render();
         return;
       case "locked-scenario":
-        U.toast("Locked for v0.1. Gidan Sama is the first calibrated scenario.", "warn");
+        U.toast("Kano utility-scale is a preview project. The four playable scenarios cover mini-grid, rooftop C&I, storage retrofit and O&M turnaround.", "warn");
         return;
       case "open-model":
         U.openModelCard();
@@ -243,7 +246,8 @@
         var out = E.exportSession();
         if (!out) { U.toast("No session to export.", "warn"); return; }
         var s = currentState();
-        U.download("gidan-sama-debrief-" + (s ? "w" + s.week : "session") + ".json", out);
+        var slug = s && s.scenarioId ? s.scenarioId : "mini-grid";
+        U.download(slug + "-debrief-" + (s ? "w" + s.week : "session") + ".json", out);
         U.toast("Session exported as JSON.", "success");
         return;
       }
@@ -343,17 +347,40 @@
         U.openEventModal();
         return;
       }
+      case "save-competency": {
+        var ratings = {};
+        C.competencies.forEach(function (c) {
+          var sel = document.getElementById("comp-" + c.id);
+          if (sel && sel.value) ratings[c.id] = Number(sel.value);
+        });
+        var noteEl = document.getElementById("comp-note");
+        var reviewerEl = document.getElementById("comp-reviewer");
+        var saved = E.setCompetencyReview({
+          ratings: ratings,
+          note: noteEl ? noteEl.value.trim() : "",
+          reviewer: reviewerEl ? reviewerEl.value.trim() : ""
+        });
+        if (!saved.ok) { U.toast(saved.error || "Could not save the assessment.", "warn"); return; }
+        U.renderReport();
+        U.toast("Assessment saved locally and added to the PDF debrief.", "success");
+        return;
+      }
       case "report-home":
         MG.app.screen = "landing";
         render();
         return;
-      case "report-restart":
+      case "report-restart": {
         if (!window.confirm("Start a new scenario? The current completed session will be cleared from local storage.")) return;
+        var oldState = E.getState();
+        var restartId = (oldState && oldState.scenarioId) || MG.app.setup.scenarioId || C.featuredScenarioId;
         E.clearSession();
         MG.app.screen = "setup";
-        MG.app.setup.scenarioId = "gidan-sama";
+        MG.app.setup.scenarioId = restartId;
+        var restartScenario = C.scenarios.filter(function (x) { return x.id === restartId; })[0];
+        MG.app.setup.conditions = C.nigeria.preset((restartScenario && restartScenario.defaultPreset) || "trainer");
         render();
         return;
+      }
       case "run-planning": {
         var inputs = U.readPlanningForm();
         var result = MG.planning.run(inputs);

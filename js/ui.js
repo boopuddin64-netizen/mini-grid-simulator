@@ -138,14 +138,17 @@
   /* ---------------- landing ---------------- */
   U.renderLanding = function () {
     var save = MG.engine.savedInfo();
-    var live = C.scenarios[0];
+    var live = C.scenarios.filter(function (s) { return s.id === C.featuredScenarioId; })[0] || C.scenarios[0];
+    var playable = C.scenarios.filter(function (s) { return s.status === "live"; });
+    var taskCount = (live.taskLibrary || C.tasks).length;
     var scenarios = C.scenarios.map(function (s) {
       var locked = s.status !== "live";
-      return '<button class="scenario-card ' + (locked ? "locked" : "") + '" data-action="' + (locked ? "locked-scenario" : "go-setup") + '" data-scenario="' + s.id + '">' +
+      var scTasks = (s.taskLibrary || []).length;
+      return '<button class="scenario-card ' + (locked ? "locked" : "playable") + '" data-action="' + (locked ? "locked-scenario" : "go-setup") + '" data-scenario="' + s.id + '">' +
         '<div class="sc-top"><div><h4>' + esc(s.name) + '</h4><div class="loc">' + esc(s.location) + "</div></div>" +
-        '<span class="pill ' + (locked ? "next" : "live") + '">' + (locked ? "Next release" : "Live") + "</span></div>" +
+        '<span class="pill ' + (locked ? "next" : "live") + '">' + (locked ? "Preview" : "Playable") + "</span></div>" +
         '<div class="sc-desc">' + esc(s.tagline) + "</div>" +
-        '<div class="sc-meta"><span>' + esc((s.contractType || "EPC contract").split("(")[0]) + "</span><span>" + s.targetWeeks + " weeks</span><span>" + (s.capacityKWp >= 1000 ? (s.capacityKWp / 1000).toFixed(1) + " MWp" : s.capacityKWp + " kWp") + "</span></div>" +
+        '<div class="sc-meta"><span>' + esc((s.contractType || "EPC contract").split("(")[0]) + "</span><span>" + s.targetWeeks + " weeks</span><span>" + (s.capacityKWp >= 1000 ? (s.capacityKWp / 1000).toFixed(1) + " MWp" : s.capacityKWp + " kWp") + (scTasks ? " · " + scTasks + " tasks" : "") + "</span></div>" +
         "</button>";
     }).join("");
 
@@ -164,35 +167,35 @@
         '<div class="hero-copy">' +
           '<p class="kicker">Solar EPC delivery · Nigeria only</p>' +
           '<h1>Run the project <em>before</em> you run the project.</h1>' +
-          '<p class="lede">A management-level simulator for solar mini-grid delivery in Nigeria. Staff the team, sequence development and procurement, survive Apapa and the naira, and commission a plant the client will actually accept.</p>' +
+          '<p class="lede">A management-level simulator for solar EPC and O&amp;M delivery in Nigeria. Run a mini-grid, rooftop C&amp;I project, storage retrofit or O&amp;M turnaround: staff the team, sequence development and procurement, survive Apapa and the naira, and commission a plant the client will actually accept.</p>' +
           '<div class="hero-actions"><button class="btn primary" data-action="go-setup" data-scenario="gidan-sama">' + icon("play", 15) + ' Start training</button>' +
           '<button class="btn amber" data-action="go-planning">' + icon("chart", 15) + ' Open planning mode</button></div>' +
           '<p class="small" style="margin-top:14px">Training sessions save locally and resume. Planning mode shows ranges, assumptions and confidence — never a single “precise” number.</p>' +
         "</div>" +
         '<aside class="hero-panel">' +
-          '<div><span class="pill live">Live scenario</span><h3 style="margin:12px 0 4px;font-size:20px">' + esc(live.name) + "</h3>" +
+          '<div><span class="pill live">Featured scenario</span><h3 style="margin:12px 0 4px;font-size:20px">' + esc(live.name) + "</h3>" +
           '<div class="small">' + esc(live.location) + " · " + esc(live.client) + "</div></div>" +
           '<div class="mini-facts">' +
-            '<div class="fact"><b>500 kWp</b><span>PV capacity</span></div>' +
-            '<div class="fact"><b>1.2 MWh</b><span>Battery storage</span></div>' +
-            '<div class="fact"><b>1,200</b><span>Connections</span></div>' +
-            '<div class="fact"><b>$2.90M</b><span>Contract value</span></div>' +
-            '<div class="fact"><b>60 weeks</b><span>Target COD</span></div>' +
-            '<div class="fact"><b>12%</b><span>Target margin</span></div>' +
+            '<div class="fact"><b>' + live.capacityKWp + ' kWp</b><span>PV capacity</span></div>' +
+            '<div class="fact"><b>' + (live.bessKWh >= 1000 ? (live.bessKWh / 1000).toFixed(1) + " MWh" : live.bessKWh + " kWh") + '</b><span>Battery storage</span></div>' +
+            '<div class="fact"><b>' + (live.connections || 0).toLocaleString("en-US") + '</b><span>Connections</span></div>' +
+            '<div class="fact"><b>' + money(live.contractValue) + '</b><span>Contract value</span></div>' +
+            '<div class="fact"><b>' + live.targetWeeks + ' weeks</b><span>Target COD</span></div>' +
+            '<div class="fact"><b>' + Math.round(live.targetMargin * 100) + '%</b><span>Target margin</span></div>' +
           "</div>" +
           '<div class="model-strip"><span class="dot"></span><span>Calibration <b style="color:var(--text)">Level C</b> — public benchmarks + expert priors. Indicative, not bankable.</span></div>' +
         "</aside>" +
       "</section>" +
       resume +
       '<div class="modes" style="margin-top:24px">' +
-        '<article class="mode-card" data-action="go-setup" data-scenario="gidan-sama"><span class="tag">Playable now</span><div class="mode-icon">' + icon("play", 20) + "</div>" +
-          "<h3>Training mode</h3><p>Run Gidan Sama week by week. Assign the team, place orders, answer Nigeria-specific events and get a scored debrief. Facilitator controls included.</p>" +
-          '<div class="sc-meta" style="margin-top:12px"><span>5 phases</span><span>35 tasks</span><span>17 events</span><span>3 difficulty levels</span></div></article>' +
+        '<article class="mode-card" data-action="go-setup" data-scenario="gidan-sama"><span class="tag">4 playable projects</span><div class="mode-icon">' + icon("play", 20) + "</div>" +
+          "<h3>Training mode</h3><p>Run " + playable.length + " Nigerian projects week by week. Assign the team, place orders, handle scenario-specific events and finish with a competency debrief. Facilitator controls included.</p>" +
+          '<div class="sc-meta" style="margin-top:12px"><span>5 phases</span><span>' + playable.length + ' scenarios</span><span>' + C.events.length + ' events</span><span>Competency debrief</span></div></article>' +
         '<article class="mode-card planning" data-action="go-planning"><span class="tag amber">Indicative ranges</span><div class="mode-icon">' + icon("chart", 20) + "</div>" +
           "<h3>Planning mode</h3><p>Edit the cost base, contract and uncertainty assumptions. Run a Monte Carlo and see P10 / P50 / P90 cost, duration, margin and cash low point — with a tornado and a visible model card.</p>" +
           '<div class="sc-meta" style="margin-top:12px"><span>2,000 runs</span><span>P10–P90</span><span>Confidence C</span><span>JSON export</span></div></article>' +
       "</div>" +
-      '<div class="section-head"><div><h2>Project library</h2><div class="muted">Five Nigerian reference projects. One is playable in v0.1; the rest define the roadmap.</div></div></div>' +
+      '<div class="section-head"><div><h2>Project library</h2><div class="muted">' + playable.length + ' playable Nigerian projects, each with its own task network, cash curve and failure modes. Kano utility-scale remains a preview.</div></div></div>' +
       '<div class="scenario-grid">' + scenarios + "</div>" +
       '<footer class="page-foot"><div><b>' + C.APP.title + " — " + C.APP.edition + "</b> · v" + C.APP.version + " · " + C.APP.contentDate + "</div>" +
       '<div class="small">' + esc(C.APP.disclaimer) + " Fictional project; public calibration data.</div></footer>";
@@ -205,7 +208,9 @@
     var cond = C.nigeria.normalize(MG.app.setup.conditions);
     MG.app.setup.conditions = cond;
     var cEff = C.nigeria.effects(cond);
-    var effectiveCash = d.startingCash + (cEff.cash || 0);
+    var cashFactor = sc.cashFactor === undefined ? 1 : sc.cashFactor;
+    var effectiveCash = Math.round(d.startingCash * cashFactor) + (cEff.cash || 0);
+    var effectiveOverdraft = Math.round(d.overdraft * cashFactor);
     var grantTotal = Math.round((cEff.grantPerConnection || 0) * (sc.connections || 0));
     var diffButtons = Object.keys(C.difficulties).map(function (k) {
       var x = C.difficulties[k];
@@ -232,11 +237,18 @@
       grantTotal ? "Grant $" + grantTotal.toLocaleString("en-US") : "No grant cash"
     ]).map(function (s) { return "<span>" + esc(s) + "</span>"; }).join("");
 
+    var scenarioSwitch = C.scenarios.filter(function (s) { return s.status === "live"; }).map(function (s) {
+      return '<button class="' + (s.id === sc.id ? "on" : "") + '" data-action="go-setup" data-scenario="' + s.id + '">' + esc(s.name) + "</button>";
+    }).join("");
+
     document.getElementById("screen-setup").innerHTML =
       topbar('<button class="btn ghost small" data-action="home">' + icon("arrow", 14) + ' Back</button><button class="btn ghost small" data-action="open-model">Model card</button>') +
-      '<div class="setup-wrap"><div class="setup-card">' +
+      '<div class="setup-wrap">' +
+        '<div class="scenario-switch"><span>Project</span>' + scenarioSwitch + "</div>" +
+        '<div class="setup-card">' +
         '<p class="kicker">Training setup</p><h1>' + esc(sc.name) + "</h1>" +
         '<p class="lede">' + esc(sc.description) + "</p>" +
+        '<div class="focus-chips">' + (sc.focus || []).map(function (f) { return "<span>" + esc(f) + "</span>"; }).join("") + "</div>" +
         '<div class="setup-grid">' +
           '<div>' +
             '<div class="brief-box"><h4>Contract brief</h4><ul>' +
@@ -253,15 +265,21 @@
               '<div class="condition-grid">' + conditionFields + "</div>" +
               '<div class="condition-impact">' + impactChips + "</div></div>" +
             '<div class="field"><label>Difficulty</label><div class="seg">' + diffButtons + "</div>" +
-              '<div class="hint">' + esc(d.blurb) + " Starting cash " + moneyExact(effectiveCash) + ", overdraft " + moneyExact(d.overdraft) + ", delay damages " + moneyExact(d.ldPerWeek) + "/week after target.</div></div>" +
+              '<div class="hint">' + esc(d.blurb) + " Starting cash " + moneyExact(effectiveCash) + ", overdraft " + moneyExact(effectiveOverdraft) + ", delay damages " + moneyExact(d.ldPerWeek) + "/week after target.</div></div>" +
           "</div>" +
           "<div>" +
             '<div class="field"><label for="seed-input">Scenario seed</label><input id="seed-input" type="number" value="' + esc(MG.app.setup.seed) + '" min="1"><div class="hint">Same seed + same decisions = same event sequence. Useful for comparing cohorts.</div></div>' +
             '<label class="checkline"><input type="checkbox" id="facilitator-input" ' + (MG.app.setup.facilitator ? "checked" : "") + "> Enable facilitator controls</label>" +
             '<div class="brief-box" style="margin-top:14px"><h4>Starting team · ' + (sc.team || C.team).length + ' people · ' + moneyExact((sc.team || C.team).reduce(function (sum, m) { return sum + m.rate; }, 0)) + "/week</h4><div class=\"team-grid\">" + team + "</div></div>" +
-            '<div class="brief-box"><h4>What this exercises</h4><ul><li>Five-phase EPC sequencing and dependency management</li><li>Cash, payment certificates, retention and delay damages</li><li>Procurement lead times, supplier tier and customs risk</li><li>Community consent, regulation, safety and quality</li><li>Decision quality under Nigerian constraints</li></ul></div>' +
+            '<div class="brief-box"><h4>What this exercises</h4><ul>' + (sc.exercises || [
+              "Five-phase EPC sequencing and dependency management",
+              "Cash, payment certificates, retention and delay damages",
+              "Procurement lead times, supplier tier and customs risk",
+              "Community consent, regulation, safety and quality",
+              "Decision quality under Nigerian constraints"
+            ]).map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul></div>" +
             '<button class="btn primary" style="width:100%;padding:13px" data-action="start-game">Start project · Week 0</button>' +
-            '<p class="small" style="margin-top:9px">The game ends at handover, insolvency, or week 80. Autosaves after every action.</p>' +
+            '<p class="small" style="margin-top:9px">The game ends at handover, insolvency, or week ' + Math.max(52, (sc.targetWeeks || 60) + 16) + ". Autosaves after every action.</p>" +
           "</div>" +
         "</div>" +
       "</div></div>";
@@ -286,26 +304,68 @@
         '<div class="score-value"><div class="bar"><i style="width:' + x[1] + '%;background:' + x[3] + '"></i></div><b>' + x[1] + "</b></div></div>";
     }).join("");
 
+    var ratingLabels = { "2": "Strong", "1": "Sound", "0": "Mixed", "-1": "Weak", "-2": "Harmful" };
+    function ratingClass(rating) {
+      if (rating === 2) return "great";
+      if (rating === 1) return "good";
+      if (rating === 0) return "mixed";
+      if (rating === -1) return "weak";
+      if (rating === -2) return "harmful";
+      return "";
+    }
     var decisions = r.decisions.length ? r.decisions.map(function (d) {
-      return '<div class="log-row"><span class="week-tag">W' + d.week + '</span><div><b>' + esc(d.event) + '</b><div class="small">' + esc(d.choice) + "</div></div></div>";
+      var rating = (d.rating === undefined || d.rating === null) ? "" : ratingLabels[String(d.rating)] || "";
+      return '<div class="log-row decision-row"><span class="week-tag">W' + d.week + '</span><div class="decision-main">' +
+        '<div class="decision-title"><b>' + esc(d.event) + '</b>' + (rating ? '<span class="rating-chip ' + ratingClass(d.rating) + '">' + rating + "</span>" : "") + "</div>" +
+        '<div class="small"><b>' + esc(d.choice) + '</b>' + (d.outcome ? " — " + esc(d.outcome) : "") + "</div>" +
+        ((d.notes && d.notes.length) ? '<div class="decision-effects">' + d.notes.map(function (n) { return "<span>" + esc(n) + "</span>"; }).join("") + "</div>" : "") +
+        "</div></div>";
     }).join("") : '<div class="small">No event decisions were taken.</div>';
 
     var lessons = r.lessons.map(function (l) { return "<li>" + esc(l) + "</li>"; }).join("");
+    var prompts = (r.scenario && r.scenario.debriefPrompts) || [];
+    var promptHtml = prompts.map(function (p) { return "<li>" + esc(p) + "</li>"; }).join("");
     var failing = r.finishReason !== "completed";
+
+    var scaleOptions = C.competencyScale.map(function (s) {
+      return '<option value="' + s.value + '">' + s.value + " — " + esc(s.label) + "</option>";
+    }).join("");
+    var review = r.competencyReview;
+    var reviewerDefault = review && review.reviewer ? review.reviewer : (MG.prefs.getPath("profile.facilitatorName", "") || MG.prefs.getPath("profile.name", "") || "");
+    var compCards = (r.competencies || []).map(function (c) {
+      var selected = c.review ? String(c.review) : "";
+      return '<div class="comp-card band-' + c.band.id + '">' +
+        '<div class="comp-head"><div><b>' + esc(c.label) + '</b><span class="comp-evidence-prompt">' + esc(c.evidencePrompt) + '</span></div>' +
+          '<span class="comp-band">' + esc(c.band.label) + "</span></div>" +
+        '<div class="comp-score"><div class="comp-bar"><i style="width:' + c.score + '%"></i></div><b>' + c.score + '<small>/100</small></b></div>' +
+        '<p class="comp-evidence">' + esc(c.evidence) + '</p>' +
+        '<label class="comp-review-label">Facilitator rating<select id="comp-' + c.id + '" class="comp-select"><option value="">Not rated</option>' + scaleOptions + "</select></label>" +
+        "</div>";
+    }).join("");
+    var compHtml = compCards;
+
+    var turning = (r.turningPoints || []).map(function (t) {
+      return '<div class="turning-row tone-' + esc(t.tone) + '"><span class="week-tag">W' + t.week + '</span><div><b>' + esc(t.title) + '</b><div class="small">' + esc(t.text) + "</div></div></div>";
+    }).join("");
+
+    var reviewMeta = review
+      ? '<div class="small comp-saved">Saved ' + esc(new Date(review.at).toLocaleString()) + (review.reviewer ? " · " + esc(review.reviewer) : "") + "</div>"
+      : '<div class="small comp-saved">Optional. Ratings and notes are stored locally with this session and included in the PDF.</div>';
 
     document.getElementById("screen-game").innerHTML =
       topbar('<button class="btn ghost small" data-action="report-pdf">' + icon("download", 14) + ' PDF report</button><button class="btn ghost small" data-action="save">Save</button><button class="btn ghost small" data-action="report-export">Export JSON</button><button class="btn ghost small" data-action="report-home">Home</button>') +
       '<div class="report-wrap">' +
         '<div class="report-head">' +
-          '<div><p class="kicker">' + (failing ? "Project closed early" : "Final report") + "</p><h1>Grade " + grade.grade + " — " + esc(grade.label) + "</h1>" +
-          '<p class="lede">' + esc(r.reasonLabel) + " " + esc(grade.note) + "</p></div>" +
+          '<div><p class="kicker">' + (failing ? "Project closed early" : "Final report") + " · " + esc(r.scenario ? r.scenario.name : "") + "</p><h1>Grade " + grade.grade + " — " + esc(grade.label) + "</h1>" +
+          '<p class="lede">' + esc(r.reasonLabel) + " " + esc(grade.note) + "</p>" +
+          '<div class="focus-line"><span>Scenario focus</span>' + ((r.scenario && r.scenario.focus) || []).map(function (f) { return "<b>" + esc(f) + "</b>"; }).join("") + "</div></div>" +
           '<div class="grade-badge grade-' + grade.grade.toLowerCase() + '">' + grade.grade + "</div>" +
         "</div>" +
         '<div class="kpi-grid report-kpis">' +
-          '<div class="kpi"><span>Overall score</span><b>' + r.scores.total + '<small>/100</small></b><div class="small">Weighted across five dimensions</div></div>' +
-          '<div class="kpi"><span>Margin</span><b class="' + (r.financials.margin < 0.12 ? "bad" : "good") + '">' + pct(r.financials.margin) + '</b><div class="small">' + money(r.financials.totalRevenue) + " revenue · " + money(r.financials.actualCost) + " cost</div></div>" +
+          '<div class="kpi"><span>Delivery score</span><b>' + r.scores.total + '<small>/100</small></b><div class="small">Weighted across five delivery dimensions</div></div>' +
+          '<div class="kpi"><span>Margin</span><b class="' + (r.financials.margin < ((r.scenario && r.scenario.targetMargin) || 0.12) ? "bad" : "good") + '">' + pct(r.financials.margin) + '</b><div class="small">' + money(r.financials.totalRevenue) + " revenue · " + money(r.financials.actualCost) + " cost · target " + Math.round(((r.scenario && r.scenario.targetMargin) || 0.12) * 100) + "%</div></div>" +
           '<div class="kpi"><span>Finish</span><b>' + (r.completed ? "W" + r.finishedWeek : "W" + r.finishedWeek) + '<small>/' + r.targetWeeks + " target</small></b><div class=\"small\">" + esc(r.delivery.done + "/" + r.delivery.total + " tasks complete") + "</div></div>" +
-          '<div class="kpi"><span>Performance ratio</span><b>' + pct(r.technical.pr) + '</b><div class="small">' + r.technical.annualMWh + " MWh/yr · " + r.technical.yieldPerKWp + " kWh/kWp</div></div>" +
+          '<div class="kpi"><span>Competency average</span><b>' + (r.competencyAverage || 0) + '<small>/100</small></b><div class="small">Decision quality ' + esc((r.decisionQuality && r.decisionQuality.label) || "—") + " · " + ((r.decisionQuality && r.decisionQuality.rated) || 0) + " events rated</div></div>" +
         "</div>" +
         '<div class="report-grid">' +
           '<div class="panel"><div class="panel-head"><h3>Score breakdown</h3><span class="small">Difficulty-adjusted</span></div>' + scoreRows +
@@ -329,15 +389,31 @@
             "<tr><td>Compliance score</td><td>" + r.stats.compliance.toFixed(1) + "</td></tr>" +
           "</table></div>" +
           '<div class="panel"><div class="panel-head"><h3>Debrief: what to take away</h3></div><ul class="lesson-list">' + lessons + "</ul>" +
+            (promptHtml ? '<div class="debrief-prompts"><b>Scenario prompts</b><ul class="lesson-list">' + promptHtml + "</ul></div>" : "") +
             '<div class="small" style="margin-top:10px">Facilitator prompt: ask each player to name one decision they would reverse, and what signal they missed.</div></div>' +
         "</div>" +
-        '<div class="panel" style="margin-top:14px"><div class="panel-head"><h3>Decision log</h3><span class="small">' + r.decisions.length + " event decisions</span></div>" + decisions + "</div>" +
+        '<div class="panel comp-panel"><div class="panel-head"><div><h3>Competency profile</h3><span class="small">Run evidence and optional facilitator assessment</span></div><span class="small">Average ' + (r.competencyAverage || 0) + "/100</span></div>" +
+          '<div class="comp-grid">' + compHtml + "</div>" +
+          '<div class="comp-review-box"><div class="field"><label for="comp-reviewer">Reviewer</label><input id="comp-reviewer" type="text" value="' + esc(reviewerDefault) + '" placeholder="Facilitator or self-assessment name"></div>' +
+            '<div class="field"><label for="comp-note">Debrief note</label><textarea id="comp-note" rows="3" placeholder="Evidence, agreed development actions and follow-up.">' + esc(review ? review.note : "") + "</textarea></div>" +
+            '<div class="comp-review-actions"><button class="btn primary small" data-action="save-competency">Save assessment</button>' + reviewMeta + "</div></div>" +
+        "</div>" +
+        '<div class="panel" style="margin-top:14px"><div class="panel-head"><div><h3>Turning points</h3><span class="small">How the run moved</span></div></div>' + (turning || '<div class="small">No history recorded.</div>') + "</div>" +
+        '<div class="panel" style="margin-top:14px"><div class="panel-head"><div><h3>Decision log</h3><span class="small">' + r.decisions.length + " event decisions · quality " + esc((r.decisionQuality && r.decisionQuality.label) || "—") + '</span></div><span class="small">Strong · Sound · Mixed · Weak · Harmful</span></div>' + decisions + "</div>" +
         '<div class="report-actions"><button class="btn primary" data-action="report-pdf">' + icon("download", 15) + ' Download PDF debrief</button>' +
           '<button class="btn" data-action="report-export">Export JSON</button>' +
           '<button class="btn ghost" data-action="report-restart">Run another project</button>' +
           '<button class="btn ghost" data-action="report-home">Back to landing</button></div>' +
-        '<p class="small" style="max-width:900px;margin-top:16px">' + esc(C.APP.disclaimer) + " Calibration " + C.calibration.levelLabel + ". This score measures decisions inside a fictional scenario, not individual competence.</p>" +
+        '<p class="small" style="max-width:900px;margin-top:16px">' + esc(C.APP.disclaimer) + " Calibration " + C.calibration.levelLabel + ". The run score measures decisions inside a fictional scenario. Facilitator ratings are optional and stored locally; they are not an automated judgement of an individual." + "</p>" +
       "</div>";
+    // Restore the saved rating selection after the markup is in the DOM.
+    if (r.competencies) {
+      r.competencies.forEach(function (c) {
+        if (!c.review) return;
+        var sel = document.getElementById("comp-" + c.id);
+        if (sel) sel.value = String(c.review);
+      });
+    }
     setScreen("game");
   };
 
@@ -395,9 +471,9 @@
     U.openModal(
       '<div class="modal-head"><div><p class="kicker">About the simulator</p><h2>Two modes, one delivery model</h2></div><button class="icon-btn" data-action="close-modal" aria-label="Close">✕</button></div>' +
       '<div class="modal-body"><p class="lede">Training mode is a five-phase task-network game. Planning mode is a transparent parametric Monte Carlo. They share the same project definitions and calibration pack, but they answer different questions.</p>' +
-      '<div class="mode-compare"><div><h4>Training</h4><ul><li>Week-by-week delivery</li><li>Crew assignment and cash flow</li><li>Nigeria event library</li><li>Scored debrief</li><li>Facilitator controls</li></ul></div>' +
+      '<div class="mode-compare"><div><h4>Training</h4><ul><li>Four playable Nigerian projects</li><li>Week-by-week delivery and cash flow</li><li>Scenario-specific event library</li><li>Competency profile and scored debrief</li><li>Facilitator assessment and controls</li></ul></div>' +
       '<div><h4>Planning</h4><ul><li>Editable cost and contract inputs</li><li>P10 / P50 / P90 ranges</li><li>Cash low point and insolvency probability</li><li>Tornado sensitivity</li><li>Assumption register and model card</li></ul></div></div>' +
-      '<div class="callout"><b>Honest limit.</b> With public data only, v0.1 is calibration Level C. It is not a validated predictor and must not be used for a bid price, investment approval or bankable forecast. The training mode is content-validated against a documented mini-grid WBS; expert review is the next gate.</div></div>'
+      '<div class="callout"><b>Honest limit.</b> With public data only, v' + esc(C.APP.version) + ' is calibration Level C. It is not a validated predictor and must not be used for a bid price, investment approval or bankable forecast. Training mode is content-validated against documented Nigerian EPC task networks; expert review remains the next gate.</div></div>'
     );
   };
 })();

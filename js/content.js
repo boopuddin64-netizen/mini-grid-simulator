@@ -11,7 +11,7 @@ MG.content = (function () {
   var APP = {
     title: "Mini-Grid EPC Simulator",
     edition: "Nigeria Edition",
-    version: "0.2.0",
+    version: "0.3.0",
     contentDate: "November 2026",
     currency: "USD",
     country: "Nigeria",
@@ -75,7 +75,7 @@ MG.content = (function () {
     }
   };
 
-  /* Locked scenarios are shown on the landing page but not playable in v0.1. */
+  /* Preview scenarios are shown on the landing page but have no task network. */
   var scenarios = [
     {
       id: "gidan-sama",
@@ -108,6 +108,19 @@ MG.content = (function () {
         "Rainy-season flooding and rural theft",
         "Grid encroachment during construction"
       ],
+      focus: ["Regulatory sequencing", "Community consent", "Import logistics", "Cash-flow control"],
+      exercises: [
+        "NERC permitting, DisCo no-objection and PBG evidence",
+        "Land, compensation and local-content negotiation",
+        "Long-lead imports through Apapa and FX exposure",
+        "Milestone cash, retention and delay damages",
+        "Commissioning, regulatory sign-off and O&M handover"
+      ],
+      debriefPrompts: [
+        "Where did the permit clock become the programme clock, and what would you have filed earlier?",
+        "Which community decision protected trust, and which one bought time at the expense of consent?",
+        "Did the cash plan survive the gap between supplier deposits and client certificates?"
+      ],
       rolesRequired: ["project_director", "development_lead", "pv_engineer", "procurement_lead", "civil_supervisor", "electrical_crew", "commissioning_engineer", "om_technician"],
       team: team
     },
@@ -116,18 +129,45 @@ MG.content = (function () {
       name: "Lagos Rooftop C&I",
       location: "Ikeja, Lagos State",
       region: "South-West Nigeria",
-      status: "locked",
-      tagline: "850 kWp rooftop, 300 kWh BESS, one industrial client",
+      status: "live",
+      tagline: "850 kWp rooftop, 300 kWh BESS, zero-export C&I",
       capacityKWp: 850,
       bessKWh: 300,
       connections: 1,
       contractValue: 1250000,
       targetWeeks: 30,
       targetMargin: 0.14,
-      description: "Fast-track rooftop for a food-processing plant. Grid instability, roof access and client production windows dominate.",
-      scope: ["Rooftop mounting", "Hybrid inverters", "300 kWh BESS", "Zero-export control"],
-      risks: ["Roof condition", "Production shutdown windows", "Import duties", "Client change control"],
-      rolesRequired: ["project_director", "pv_engineer", "procurement_lead", "electrical_crew", "commissioning_engineer"],
+      client: "Ikeja Foods Plc (private commercial & industrial client)",
+      contractType: "Fast-track turnkey EPC + 24-month O&M (fixed price, USD)",
+      description:
+        "A rooftop solar and battery system on a live food-processing plant. The client wants lower energy costs, the factory cannot stop producing, and the DisCo will witness every export limit before it allows energisation.",
+      scope: [
+        "850 kWp rooftop PV with waterproof fixing system",
+        "300 kWh lithium-ion BESS and hybrid inverters",
+        "Zero-export control and DisCo witness testing",
+        "24-month O&M and remote monitoring"
+      ],
+      risks: [
+        "Roof structure and waterproofing defects",
+        "Production shutdown windows that move",
+        "Zero-export protection and DisCo sign-off",
+        "Import duties and fast-track equipment allocation",
+        "Client change control during a live installation"
+      ],
+      focus: ["Live-factory access", "Roof structural risk", "Zero-export compliance", "Shutdown-window control"],
+      exercises: [
+        "Rooftop structural and waterproofing due diligence",
+        "Production shutdown planning and tie-in sequencing",
+        "DisCo connection agreements and zero-export witness tests",
+        "Fast-track procurement with narrower buffers",
+        "Client change control on an operating site"
+      ],
+      debriefPrompts: [
+        "Which roof or access assumption would you test before pricing another rooftop project?",
+        "How did the shutdown window shape the programme, and who owned that constraint?",
+        "Was the zero-export risk treated as a design requirement or a commissioning problem?"
+      ],
+      rolesRequired: ["project_director", "development_lead", "pv_engineer", "procurement_lead", "civil_supervisor", "electrical_crew", "commissioning_engineer"],
       team: team
     },
     {
@@ -154,7 +194,7 @@ MG.content = (function () {
       name: "Port Harcourt Storage Retrofit",
       location: "Port Harcourt, Rivers State",
       region: "South-South Nigeria",
-      status: "locked",
+      status: "live",
       tagline: "2.4 MWh BESS retrofit into an operating 3 MWp plant",
       capacityKWp: 3000,
       bessKWh: 2400,
@@ -162,10 +202,37 @@ MG.content = (function () {
       contractValue: 2650000,
       targetWeeks: 36,
       targetMargin: 0.13,
-      description: "Retrofit storage into a live plant without interrupting production. Interface risk, protection studies and commissioning windows dominate.",
-      scope: ["2.4 MWh BESS", "PCS and EMS", "Protection upgrade", "Live-plant commissioning"],
-      risks: ["Live-plant outages", "Legacy SCADA integration", "Battery supply", "Safety during tie-in"],
-      rolesRequired: ["project_director", "pv_engineer", "procurement_lead", "electrical_crew", "commissioning_engineer"],
+      client: "Rivers Power Company (existing 3 MWp solar plant)",
+      contractType: "Storage retrofit EPC + integration, outage-window based",
+      description:
+        "A battery retrofit into a live solar plant. The battery is the long-lead item, the outage window belongs to the operator, and every protection and SCADA change has to coexist with equipment you did not design.",
+      scope: [
+        "2.4 MWh lithium-ion BESS and fire suppression",
+        "PCS, EMS and interface transformers",
+        "Protection, earthing and arc-flash upgrade",
+        "Live-plant tie-in, black-start and commissioning"
+      ],
+      risks: [
+        "Live-plant outage windows and production guarantees",
+        "Legacy SCADA and protection compatibility",
+        "Battery cell traceability and supply",
+        "Safety during isolation and tie-in",
+        "Cyber exposure of a remotely operated battery"
+      ],
+      focus: ["Live-plant interface", "Protection & SCADA compatibility", "Outage-window control", "Battery traceability"],
+      exercises: [
+        "Interface management in an operating plant",
+        "Protection coordination with battery fault contribution",
+        "Outage negotiation and production guarantees",
+        "Long-lead battery procurement with traceability risk",
+        "Live tie-in, black-start and control-room integration"
+      ],
+      debriefPrompts: [
+        "Which interface assumption should have been tested before the outage was booked?",
+        "Did the programme treat the operator's production value as a cost or as a constraint?",
+        "Where did legacy equipment turn a straightforward retrofit into a redesign?"
+      ],
+      rolesRequired: ["project_director", "pv_engineer", "procurement_lead", "electrical_crew", "commissioning_engineer", "om_technician"],
       team: team
     },
     {
@@ -173,7 +240,7 @@ MG.content = (function () {
       name: "Abuja O&M Turnaround",
       location: "Abuja (FCT)",
       region: "North-Central Nigeria",
-      status: "locked",
+      status: "live",
       tagline: "12-site O&M turnaround, 4.8 MWp under management",
       capacityKWp: 4800,
       bessKWh: 600,
@@ -181,10 +248,37 @@ MG.content = (function () {
       contractValue: 980000,
       targetWeeks: 26,
       targetMargin: 0.17,
-      description: "Take over a poorly performing portfolio, recover yield and reset O&M. Fleet data, spares and technician capacity are the constraints.",
-      scope: ["Condition assessment", "Spares strategy", "SCADA/remote monitoring", "Technician training"],
-      risks: ["Legacy defects", "Data quality", "Spares lead times", "Client expectations"],
-      rolesRequired: ["project_director", "pv_engineer", "procurement_lead", "commissioning_engineer", "om_technician"],
+      client: "Abuja Municipal Energy Board (12-site portfolio)",
+      contractType: "O&M turnaround mandate + 12-month service agreement",
+      description:
+        "Take over a poorly performing portfolio, recover yield and reset the operating model. The fleet data is unreliable, the sites are spread across the FCT and the client wants a visible recovery in one quarter.",
+      scope: [
+        "Rapid condition assessment across 12 sites",
+        "Recovery plan, critical spares and inverter replacements",
+        "Metering, monitoring and communications upgrade",
+        "O&M routines, training and service-level reset"
+      ],
+      risks: [
+        "Unreliable fleet data and meter tampering",
+        "Site access and incumbent contractors",
+        "Counterfeit or unwarranted spares",
+        "Legacy safety defects across multiple sites",
+        "Client expectations for an immediate yield recovery"
+      ],
+      focus: ["Fleet data quality", "O&M economics", "Spares traceability", "Service-level recovery"],
+      exercises: [
+        "Portfolio triage and loss analysis across 12 sites",
+        "Spares criticality, traceability and warranty",
+        "Metering, monitoring and evidence-based yield claims",
+        "Service-level negotiation and client acceptance",
+        "Turning a turnaround into a sustainable O&M routine"
+      ],
+      debriefPrompts: [
+        "Which data gap would have changed your recovery plan if you had found it first?",
+        "Did the spares decision protect the fleet or just the budget?",
+        "What did the client actually accept at handover, and was it the same thing you promised?"
+      ],
+      rolesRequired: ["project_director", "development_lead", "pv_engineer", "procurement_lead", "commissioning_engineer", "om_technician"],
       team: team
     }
   ];

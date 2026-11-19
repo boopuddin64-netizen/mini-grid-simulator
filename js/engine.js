@@ -16,6 +16,15 @@
   function scenario() { return find(C.scenarios, S.scenarioId); }
   function diff() { return C.difficulties[S.difficulty] || C.difficulties.normal; }
 
+  function finalTaskId(tasks) {
+    var depended = {};
+    tasks.forEach(function (t) {
+      (t.deps || []).forEach(function (d) { depended[d] = true; });
+    });
+    var finals = tasks.filter(function (t) { return !depended[t.id]; });
+    return finals.length ? finals[finals.length - 1].id : (tasks.length ? tasks[tasks.length - 1].id : null);
+  }
+
   function rnd() {
     var t = (S.rngState = (S.rngState + 0x6D2B79F5) | 0);
     t = Math.imul(t ^ (t >>> 15), t | 1);
@@ -43,8 +52,14 @@
 
     var conditions = C.nigeria.normalize(opts.conditions);
     var cEff = C.nigeria.effects(conditions);
+    var taskLibrary = (sc.taskLibrary && sc.taskLibrary.length) ? sc.taskLibrary : C.tasks;
+    var milestoneLibrary = (sc.milestones && sc.milestones.length) ? sc.milestones : C.milestones;
+    var cashFactor = (sc.cashFactor === undefined ? 1 : sc.cashFactor);
+    var baseStartingCash = Math.round(d.startingCash * cashFactor);
+    var effectiveOverdraft = Math.round(d.overdraft * cashFactor);
+    var hardStopWeek = Math.max(52, (sc.targetWeeks || 60) + 16);
 
-    var tasks = C.tasks.map(function (t) {
+    var tasks = taskLibrary.map(function (t) {
       var copy = JSON.parse(JSON.stringify(t));
       copy.status = "locked";
       copy.progress = 0;
@@ -68,11 +83,12 @@
 
     var grantTotal = Math.round((cEff.grantPerConnection || 0) * (sc.connections || 0));
     var grantSplit = cEff.grantSplit || [0.5, 0.5];
+    var finalTask = finalTaskId(taskLibrary);
     var grantTriggers = grantSplit.length >= 3
-      ? [{ progress: 0.45 }, { progress: 0.8 }, { task: "cx-handover" }]
-      : [{ progress: 0.45 }, { task: "cx-handover" }];
+      ? [{ progress: 0.45 }, { progress: 0.8 }, { task: finalTask }]
+      : [{ progress: 0.45 }, { task: finalTask }];
     var grants = grantTotal > 0 ? grantSplit.map(function (pct, i) {
-      var trigger = grantTriggers[i] || { task: "cx-handover" };
+      var trigger = grantTriggers[i] || { task: finalTask };
       return {
         label: "PBG tranche " + (i + 1) + " of " + grantSplit.length,
         amount: Math.round(grantTotal * pct),
@@ -100,10 +116,11 @@
       savedAt: null,
       week: 0,
       targetWeeks: sc.targetWeeks,
+      hardStopWeek: hardStopWeek,
       contractValue: sc.contractValue,
-      startingCash: d.startingCash + (cEff.cash || 0),
-      overdraft: d.overdraft,
-      cash: d.startingCash + (cEff.cash || 0),
+      startingCash: baseStartingCash + (cEff.cash || 0),
+      overdraft: effectiveOverdraft,
+      cash: baseStartingCash + (cEff.cash || 0),
       grants: grants,
       grantTotal: grantTotal,
       grantReceived: 0,
@@ -118,7 +135,7 @@
       team: JSON.parse(JSON.stringify(sc.team || C.team)).map(function (m) { m.assignment = null; return m; }),
       stats: startStats,
       metrics: { task: 0, overhead: 0, financing: 0, events: 0, penalties: 0, rework: 0, facilitator: 0 },
-      milestones: JSON.parse(JSON.stringify(C.milestones)).map(function (m) {
+      milestones: JSON.parse(JSON.stringify(milestoneLibrary)).map(function (m) {
         m.status = "pending"; m.certifiedWeek = null; m.paidWeek = null; m.amount = Math.round(sc.contractValue * m.pct); return m;
       }),
       receivables: [],
@@ -128,12 +145,14 @@
       decisionLog: [],
       taskStarts: 0,
       peakOverdraft: 0,
+      competencyReview: null,
       report: null,
       lastWeek: null
     };
 
     refreshStatuses();
     log("info", "Project mobilised: " + sc.name + ". Baseline contract $" + sc.contractValue.toLocaleString() + ", target " + sc.targetWeeks + " weeks, " + d.label + " difficulty.");
+    if (sc.focus && sc.focus.length) log("info", "Scenario focus: " + sc.focus.join(" · ") + ".");
     log("info", "Operating conditions: " + C.nigeria.groups.map(function (g) {
       return g.label + " — " + (C.nigeria.findOption(g.id, conditions[g.id]) || {}).label;
     }).join("; ") + ".");
@@ -482,7 +501,25 @@
       "cx-onboarding": { stakeholder: 8, client: 3 },
       "cx-cod": { client: 6, compliance: 3 },
       "cx-om": { stakeholder: 3 },
-      "cx-handover": { client: 5 }
+      "cx-handover": { client: 5 },
+      "lag-finclose": { client: 3 },
+      "lag-mobilise": { safety: 2 },
+      "lag-tiein": { client: 3, compliance: 2 },
+      "lag-perf": { compliance: 2, client: 2 },
+      "lag-cod": { client: 5, compliance: 2 },
+      "lag-om": { stakeholder: 3, client: 2 },
+      "lag-handover": { client: 4 },
+      "ph-finclose": { client: 2 },
+      "ph-mobilise": { safety: 2 },
+      "ph-tiein": { client: 3, compliance: 2 },
+      "ph-protection-test": { compliance: 3 },
+      "ph-cod": { client: 4, compliance: 3 },
+      "ph-om": { stakeholder: 3, client: 2 },
+      "ph-handover": { client: 4 },
+      "ab-finclose": { client: 3 },
+      "ab-sla": { client: 4, stakeholder: 2 },
+      "ab-om": { stakeholder: 3 },
+      "ab-handover": { client: 4, stakeholder: 2 }
     }[t.id];
     if (trust) Object.keys(trust).forEach(function (k) { adjustStat(k, trust[k]); });
     S.lastWeek.completed.push(t.name);
@@ -493,11 +530,12 @@
   /* ---------- events ---------- */
   function eventEligible(ev) {
     if (!ev.week) return false;
+    if (ev.scenario && ev.scenario !== S.scenarioId) return false;
     if (ev.week.exact !== undefined && S.week !== ev.week.exact) return false;
     if (ev.week.min !== undefined && S.week < ev.week.min) return false;
     if (ev.week.max !== undefined && S.week > ev.week.max) return false;
     var c = ev.condition || {};
-    if (c.taskNotDone) { var nt = taskById(c.taskNotDone); if (nt && nt.status === "done") return false; }
+    if (c.taskNotDone) { var nt = taskById(c.taskNotDone); if (!nt || nt.status === "done") return false; }
     if (c.taskDone) { var dt = taskById(c.taskDone); if (!dt || dt.status !== "done") return false; }
     if (c.taskActive) { var at = taskById(c.taskActive); if (!at || at.status !== "active") return false; }
     if (c.phaseActive) {
@@ -525,8 +563,8 @@
 
     /* Pace random events: a cooldown plus a weekly gate keeps the scenario
        from becoming a wall of pop-ups. Fixed-date events still fire. */
-    if (S.lastRandomEventWeek !== null && S.week - S.lastRandomEventWeek < 4) return null;
-    if (rnd() > 0.18) return null;
+    if (S.lastRandomEventWeek !== null && S.week - S.lastRandomEventWeek < 3) return null;
+    if (rnd() > 0.28) return null;
 
     var bias = (S.conditionEffects && S.conditionEffects.eventBias) || {};
     function weight(e) {
@@ -629,8 +667,13 @@
     if (e.pr) { S.prDelta += e.pr; notes.push("PR " + (e.pr > 0 ? "+" : "") + (e.pr * 100).toFixed(1) + "pp"); }
     if (e.defectRisk) { S.defectRisk += e.defectRisk; notes.push("defect risk +" + Math.round(e.defectRisk * 100) + "%"); }
 
+    var rubric = (C.eventRubric && C.eventRubric[ev.id]) || {};
+    var rating = rubric[ch.id] === undefined ? null : rubric[ch.id];
     S.eventsResolved.push({ id: ev.id, title: ev.title, choiceId: ch.id, choice: ch.label, week: S.week, notes: notes });
-    S.decisionLog.push({ week: S.week, event: ev.title, choice: ch.label, outcome: ch.outcome });
+    S.decisionLog.push({
+      week: S.week, event: ev.title, choice: ch.label, outcome: ch.outcome,
+      category: ev.category, notes: notes.slice(), rating: rating
+    });
     S.pendingEvent = null;
     log("event", "Decision — " + ev.title + ": " + ch.label + " (" + notes.join(", ") + ").");
     log("info", ch.outcome);
@@ -686,7 +729,7 @@
       return { ok: true, finished: true, report: S.report };
     }
 
-    if (S.week >= 80) {
+    if (S.week >= (S.hardStopWeek || 80)) {
       finalize("timeout");
       pushHistory();
       save();
@@ -709,7 +752,7 @@
     log(reason === "completed" ? "done" : "warn",
       reason === "completed" ? "Project completed. Final report generated." :
       reason === "insolvency" ? "Insolvency: cash fell below the overdraft limit. Final report generated." :
-      "Hard stop reached at week 80. Final report generated.");
+      "Hard stop reached at week " + (S.hardStopWeek || 80) + ". Final report generated.");
     save();
   }
 
@@ -742,6 +785,7 @@
     if (S.pendingEvent) return { ok: false, error: "Resolve the pending event first." };
     var ev = find(C.events, eventId);
     if (!ev) return { ok: false, error: "Event not found." };
+    if (ev.scenario && ev.scenario !== S.scenarioId) return { ok: false, error: "That event belongs to a different scenario." };
     S.pendingEvent = ev.id;
     log("event", "Facilitator injected: " + ev.title + ".");
     save();
@@ -770,6 +814,26 @@
       events: S.eventsResolved.slice(), receivables: S.receivables.slice(),
       conditions: S.conditions, grants: (S.grants || []).slice(), grantReceived: round(S.grantReceived || 0)
     };
+  }
+
+  /* ---------- competency review ---------- */
+  function setCompetencyReview(input) {
+    if (!S) return { ok: false, error: "No active session." };
+    var ratings = {};
+    var raw = (input && input.ratings) || {};
+    C.competencies.forEach(function (c) {
+      var v = Number(raw[c.id]);
+      if (v >= 1 && v <= 5) ratings[c.id] = Math.round(v);
+    });
+    S.competencyReview = {
+      ratings: ratings,
+      note: String((input && input.note) || "").slice(0, 1200),
+      reviewer: String((input && input.reviewer) || "").slice(0, 120),
+      at: new Date().toISOString()
+    };
+    if (S.finished) S.report = MG.report.build(S);
+    save();
+    return { ok: true, review: S.competencyReview };
   }
 
   /* ---------- persistence ---------- */
@@ -801,6 +865,12 @@
     if (!S.grants) S.grants = [];
     if (S.grantReceived === undefined) S.grantReceived = 0;
     if (S.grantTotal === undefined) S.grantTotal = 0;
+    if (S.competencyReview === undefined) S.competencyReview = null;
+    if (!S.hardStopWeek) {
+      var sc = find(C.scenarios, S.scenarioId);
+      S.hardStopWeek = Math.max(52, ((sc && sc.targetWeeks) || 60) + 16);
+    }
+    if (S.finished && MG.report) S.report = MG.report.build(S);
     return S;
   }
 
@@ -809,7 +879,7 @@
     if (!data) return null;
     var sc = find(C.scenarios, data.scenarioId);
     return {
-      week: data.week, scenario: sc ? sc.name : data.scenarioId,
+      week: data.week, scenario: sc ? sc.name : data.scenarioId, scenarioId: data.scenarioId,
       difficulty: data.difficulty, finished: !!data.finished,
       finishReason: data.finishReason, savedAt: data.savedAt,
       cash: data.cash, facilitator: data.facilitator
@@ -871,6 +941,7 @@
     togglePause: togglePause,
     injectEvent: injectEvent,
     addCash: addCash,
-    reveal: reveal
+    reveal: reveal,
+    setCompetencyReview: setCompetencyReview
   };
 })();

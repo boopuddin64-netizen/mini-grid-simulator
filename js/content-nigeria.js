@@ -57,6 +57,15 @@
             stat: { client: 2 },
             eventBias: { "Finance": 1.25 }
           }
+        },
+        {
+          id: "none", label: "No grant — corporate balance sheet",
+          note: "No subsidy or grant cash. The client funds the project commercially; financing is priced at corporate rates.",
+          effects: {
+            interestMult: 1.2,
+            stat: { client: 1 },
+            eventBias: { "Finance": 1.1 }
+          }
         }
       ]
     },
@@ -191,6 +200,21 @@
       id: "interconnected", label: "Interconnected edge",
       blurb: "Grid-ready, NEP grant, pre-certified supplier and hedged FX. More regulators, fewer surprises.",
       conditions: { grid: "interconnected", funding: "nep", community: "standard", customs: "precleared", fx: "hedged", security: "moderate" }
+    },
+    {
+      id: "rooftop", label: "Rooftop C&I",
+      blurb: "Grid-connected, no grant, pre-certified supplier and hedged FX. Fast-track with a live factory underneath.",
+      conditions: { grid: "interconnected", funding: "none", community: "standard", customs: "precleared", fx: "hedged", security: "low" }
+    },
+    {
+      id: "retrofit", label: "Live-plant retrofit",
+      blurb: "Commercial mobilisation cash, grid-connected, pre-certified supplier and hedged FX. A live-plant interface with a battery-heavy cash curve.",
+      conditions: { grid: "interconnected", funding: "commercial", community: "standard", customs: "precleared", fx: "hedged", security: "elevated" }
+    },
+    {
+      id: "om-turnaround", label: "O&M turnaround",
+      blurb: "Isolated portfolio, no grant, standard clearing and partial FX cover. Distributed sites, elevated security.",
+      conditions: { grid: "isolated", funding: "none", community: "standard", customs: "standard", fx: "partial", security: "elevated" }
     }
   ];
 

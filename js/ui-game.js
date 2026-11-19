@@ -516,8 +516,9 @@
   function renderOverview(s, f) {
     var runway = f.runwayWeeks;
     var late = f.projectedWeeks - s.targetWeeks;
-    var marginTone = Math.round(f.projectedMargin * 1000) >= 120 ? "good" : f.projectedMargin >= 0 ? "warn" : "bad";
-    var marginBar = f.projectedMargin <= 0 ? 0 : Math.min(100, f.projectedMargin / 0.12 * 100);
+    var targetMargin = sc().targetMargin === undefined ? 0.12 : sc().targetMargin;
+    var marginTone = f.projectedMargin >= targetMargin ? "good" : f.projectedMargin >= 0 ? "warn" : "bad";
+    var marginBar = f.projectedMargin <= 0 ? 0 : Math.min(100, f.projectedMargin / targetMargin * 100);
     var scheduleBar = s.targetWeeks ? Math.min(100, f.projectedWeeks / s.targetWeeks * 100) : 0;
     var cashHistory = s.history.map(function (h) { return h.cash; });
     var done = s.tasks.filter(function (t) { return t.status === "done"; }).length;
@@ -532,7 +533,7 @@
       statCard({
         label: "Forecast margin", icon: "chart",
         value: pct(f.projectedMargin), valueTone: marginTone,
-        note: "Target 12% · forecast cost " + money(f.projectedCost),
+        note: "Target " + Math.round(targetMargin * 100) + "% · forecast cost " + money(f.projectedCost),
         bar: marginBar,
         barColor: marginTone === "good" ? "var(--green)" : marginTone === "warn" ? "var(--amber)" : "var(--red)"
       }) +
@@ -699,7 +700,7 @@
       statCard({ label: "Contract value", icon: "cash", value: money(s.contractValue), note: "Fixed-price lump sum · 5% retention." }) +
       statCard({ label: "Forecast cost", icon: "chart", value: money(f.projectedCost), note: "Actual spend " + money(spentTotal(s)) + " to date." }) +
       statCard({ label: "Cash position", icon: "cash", value: money(s.cash), valueTone: s.cash < 0 ? "bad" : "", note: "Available liquidity " + money(liquidity) + "." }) +
-      statCard({ label: "Forecast margin", icon: "gauge", value: pct(f.projectedMargin), valueTone: f.projectedMargin >= 0.12 ? "good" : f.projectedMargin >= 0 ? "warn" : "bad", note: "Target 12% · revenue " + money(f.revenue) + "." }) +
+      statCard({ label: "Forecast margin", icon: "gauge", value: pct(f.projectedMargin), valueTone: f.projectedMargin >= (sc().targetMargin === undefined ? 0.12 : sc().targetMargin) ? "good" : f.projectedMargin >= 0 ? "warn" : "bad", note: "Target " + Math.round((sc().targetMargin === undefined ? 0.12 : sc().targetMargin) * 100) + "% · revenue " + money(f.revenue) + "." }) +
     "</div>" +
     '<div class="finance-grid">' +
       '<section class="card"><div class="card-head"><div><p class="eyebrow">Week by week</p><h2>Cash trend</h2></div><span class="count-pill">' + (cashHistory.length ? cashHistory.length + " weeks" : "No history") + "</span></div>" +
@@ -1004,6 +1005,7 @@
     var s = state();
     if (!s) return;
     var unresolved = C.events.filter(function (ev) {
+      if (ev.scenario && ev.scenario !== s.scenarioId) return false;
       return !s.eventsResolved.some(function (x) { return x.id === ev.id; });
     });
     var options = unresolved.map(function (ev) { return '<option value="' + ev.id + '">' + esc(ev.category + " — " + ev.title) + "</option>"; }).join("");
@@ -1016,7 +1018,7 @@
           '<button class="btn small" data-action="fac-step">Step 1 week</button></div></div>' +
         '<div class="fac-card"><h4>Add cash</h4><p class="small">Extend the scenario without changing the task physics.</p><div class="fac-inline"><input id="fac-cash" type="number" value="50000" step="5000"><button class="btn small" data-action="fac-add-cash">Apply</button></div></div>' +
         '<div class="fac-card"><h4>Reveal hidden state</h4><p class="small">Forecast, defect risk, cash runway, receivables.</p><button class="btn small" data-action="fac-reveal">Reveal now</button><div id="fac-reveal-out"></div></div>' +
-        '<div class="fac-card"><h4>Inject an event</h4><p class="small">Force a specific Nigeria event for the debrief.</p><div class="fac-inline"><select id="fac-event">' + options + '</select><button class="btn small" data-action="fac-inject">Inject</button></div></div>' +
+        '<div class="fac-card"><h4>Inject an event</h4><p class="small">Force a specific event for this project (' + unresolved.length + ' unresolved).</p><div class="fac-inline"><select id="fac-event">' + options + '</select><button class="btn small" data-action="fac-inject">Inject</button></div></div>' +
       "</div>" +
       '<h4>Facilitator notes</h4><ul class="small">' + C.facilitatorHelp.map(function (h) { return "<li>" + esc(h) + "</li>"; }).join("") + "</ul>" +
       '<div class="modal-foot-inline"><button class="btn small" data-action="export-training">Export session JSON</button><button class="btn small ghost" data-action="report-restart">Restart scenario</button></div>' +

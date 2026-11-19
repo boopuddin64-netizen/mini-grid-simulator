@@ -49,7 +49,7 @@ cd "C:\Users\USER\Documents\Default Project"
 
 git init
 git add -A
-git commit -m "Mini-Grid EPC Simulator v0.2.0"
+git commit -m "Mini-Grid EPC Simulator v0.3.0"
 git branch -M main
 git remote add origin https://github.com/YOUR-USERNAME/YOUR-REPO.git
 git push -u origin main
@@ -130,11 +130,13 @@ For a quick internal demo you can also drag the folder into Netlify Drop
 Run through this list on the live HTTPS URL:
 
 - [ ] Landing page loads with no console errors.
-- [ ] **Start training** opens setup; the four condition presets and six dropdowns work.
+- [ ] **Start training** opens setup; all four playable projects, seven condition presets
+      and six dropdowns work.
 - [ ] A training week can be advanced and the save survives a page reload.
 - [ ] **Live ops** shows the clock, season, work in progress and crew.
 - [ ] **Account & settings** opens; dark, light and system themes switch.
-- [ ] **PDF report** opens the print view. Allow pop-ups for the site the first time.
+- [ ] **PDF report** opens the print view with the competency profile and turning points.
+      Allow pop-ups for the site the first time.
 - [ ] **Planning mode** runs 2,000 simulations and the PDF analysis opens.
 - [ ] The site works on a phone width and on a projector.
 

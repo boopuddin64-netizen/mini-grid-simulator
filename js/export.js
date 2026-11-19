@@ -196,13 +196,16 @@
     var grantRows = (r.grants || []).map(function (g) {
       return [esc(g.label), moneyExact(g.amount), esc(g.status), esc(g.paidWeek === null ? "—" : "W" + g.paidWeek)];
     });
+    var ratingLabels = { "2": "Strong", "1": "Sound", "0": "Mixed", "-1": "Weak", "-2": "Harmful" };
     var decisionRows = (r.decisions || []).map(function (d) {
-      return [esc("W" + d.week), esc(d.event), esc(d.choice)];
+      var rating = d.rating === undefined || d.rating === null ? "—" : (ratingLabels[String(d.rating)] || "—");
+      return [
+        esc("W" + d.week), esc(d.category || "Event"), esc(d.event),
+        "<b>" + esc(d.choice) + "</b>" + (d.outcome ? '<br><span class="note">' + esc(d.outcome) + "</span>" : ""),
+        esc((d.notes || []).join(" · ") || "—"), esc(rating)
+      ];
     });
-    var evidenceMap = {
-      2: "dev-community", 3: "dev-esia", 4: "dev-grid", 5: "dev-nerc",
-      7: "proc-logistics", 8: "cx-protection", 9: "cx-precomm", 10: "cx-handover"
-    };
+    var evidenceMap = sc.evidenceTasks || {};
     function evidenceStatus(taskId) {
       var t = state.tasks.filter(function (x) { return x.id === taskId; })[0];
       if (!t) return "—";
@@ -219,6 +222,18 @@
       var t = m.assignment ? state.tasks.filter(function (x) { return x.id === m.assignment; })[0] : null;
       return [esc(m.name), esc(C.roles[m.role] ? C.roles[m.role].label : m.role), moneyExact(m.rate) + "/wk", esc(t ? (t.short || t.name) : "Unassigned")];
     });
+    var scaleLabels = {};
+    C.competencyScale.forEach(function (x) { scaleLabels[x.value] = x.label; });
+    var review = r.competencyReview || null;
+    var competencyRows = (r.competencies || []).map(function (c) {
+      var reviewed = c.review ? scaleLabels[c.review] || String(c.review) : "—";
+      return [esc(c.label), String(c.score), esc(c.band.label), esc(reviewed), esc(c.evidence)];
+    });
+    var turningRows = (r.turningPoints || []).map(function (t) {
+      return [esc("W" + t.week), esc(t.title), esc(t.text)];
+    });
+    var focusText = (sc.focus || []).join(" · ");
+    var debriefPrompts = (sc.debriefPrompts || []).map(function (p) { return "<li>" + esc(p) + "</li>"; }).join("");
 
     var body = docHead(status, (finished ? "Grade " + grade.grade + " — " : "") + (sc.name || "Mini-grid project"),
       (finished ? r.reasonLabel + " " : "Live delivery position at week " + state.week + " of " + state.targetWeeks + ". ") +
@@ -233,17 +248,18 @@
       '<div class="meta"><span>Week</span><b>' + state.week + " / " + state.targetWeeks + "</b></div>" +
       '<div class="meta"><span>Seed</span><b>' + state.seed + "</b></div>" +
       '<div class="meta"><span>Status</span><b>' + esc(finished ? "Closed" : "Live") + "</b></div>" +
-    "</div>";
+    "</div>" +
+    '<p class="note"><b>Contract:</b> ' + esc(sc.contractType || "—") + (focusText ? " &nbsp;·&nbsp; <b>Scenario focus:</b> " + esc(focusText) : "") + "</p>";
 
     body += '<div class="kpi-grid">' +
-      kpi("Overall score", (r.scores ? r.scores.total : "—") + "<small>/100</small>", finished ? "Weighted decision score" : "Projected at current run-rate", r.scores && r.scores.total < 60 ? "warn" : "") +
-      kpi("Margin", pct(r.financials.margin), finished ? "Actual contract margin" : "Forecast at completion", r.financials.margin < 0.12 ? "warn" : "") +
+      kpi("Delivery score", (r.scores ? r.scores.total : "—") + "<small>/100</small>", finished ? "Weighted delivery score" : "Projected at current run-rate", r.scores && r.scores.total < 60 ? "warn" : "") +
+      kpi("Margin", pct(r.financials.margin), finished ? "Actual contract margin · target " + Math.round(((r.scenario && r.scenario.targetMargin) || 0.12) * 100) + "%" : "Forecast at completion", r.financials.margin < ((r.scenario && r.scenario.targetMargin) || 0.12) ? "warn" : "") +
       kpi("Finish", "W" + (finished ? r.finishedWeek : f.projectedWeeks), "Target W" + r.targetWeeks, f.projectedWeeks > r.targetWeeks ? "warn" : "") +
       kpi("Performance ratio", pct(r.technical.pr), r.technical.annualMWh + " MWh/yr", r.technical.pr < 0.78 ? "bad" : "") +
     "</div>";
 
     body += '<div class="callout' + (finished ? "" : " warn") + '"><b>' + esc(finished ? "Debrief record" : "Working document") + ".</b> " +
-      esc(finished ? "This report is the scored record of one fictional delivery. It measures decisions inside the scenario, not individual competence." : "This is a live status report, not a final score. Forecast values will move with the remaining decisions.") +
+      esc(finished ? "This report is the scored record of one fictional delivery. Delivery scores measure the run; the competency profile is a facilitated assessment aid, not an automated judgement of an individual." : "This is a live status report, not a final score. Forecast values will move with the remaining decisions.") +
       " Calibration Level C: public benchmarks plus expert priors, not a bankable forecast.</div>";
 
     body += section("Outcome and score", '<div class="two"><div>' +
@@ -264,6 +280,17 @@
       "</div>",
       "Progress is cost-weighted, not task-count weighted. A phase can look complete while commissioning evidence is still open.");
 
+    body += section("Competency profile and assessment",
+      table(["Competency", "Score", "Band", "Facilitator", "Evidence from this run"], competencyRows, "compact") +
+      '<div class="callout"><b>Decision quality:</b> ' +
+        esc((r.decisionQuality && r.decisionQuality.label) || "—") + " (" + ((r.decisionQuality && r.decisionQuality.score) || 0) + "/100 across " +
+        ((r.decisionQuality && r.decisionQuality.rated) || 0) + " rated decisions). <b>Run average:</b> " + (r.competencyAverage || 0) + "/100.</div>" +
+      (review
+        ? '<div class="callout"><b>Facilitator review' + (review.reviewer ? " — " + esc(review.reviewer) : "") + ".</b> " +
+            (review.note ? esc(review.note) : "No narrative comment recorded.") + '<br><span class="note">Saved ' + esc(date(review.at)) + " on this device.</span></div>"
+        : '<p class="note">No facilitator assessment was recorded. The six run scores are decision aids for the debrief; they are not an automated judgement of an individual.</p>'),
+      "Scores measure decisions inside this fictional scenario. Facilitator ratings are stored with the session and are optional.");
+
     body += section("Milestones and grant cash", table(["Milestone", "Share", "Amount", "Status", "Certified", "Paid"], milestoneRows, "compact") +
       (grantRows.length ? '<h3>Performance-based grant</h3>' + table(["Tranche", "Amount", "Status", "Paid"], grantRows, "compact") : '<p class="note">No performance-based grant in this configuration.</p>'),
       "Client certificates and grant verification are separate cash events. Both need documentary evidence.");
@@ -280,10 +307,14 @@
     body += section("Nigeria compliance map", table(["Requirement", "Authority", "Typical window", "Run evidence", "Why it matters"], processRows, "compact"),
       "Typical windows are planning ranges, not statutory guarantees. The 2026 NERC regulations and NEMSA guidance remain the controlling documents.");
 
-    body += section("Decision log", decisionRows.length ? table(["Week", "Event", "Decision"], decisionRows, "compact") : '<p class="note">No event decisions were taken.</p>',
-      "Each entry records the selected response, not the full outcome text. Use the debrief to test the reasoning behind each choice.");
+    body += section("Turning points", turningRows.length ? table(["Week", "Moment", "What happened"], turningRows, "compact") : '<p class="note">No history was recorded.</p>',
+      "A short narrative of the cash, decision and delivery moments that shaped the outcome.");
+
+    body += section("Decision log", decisionRows.length ? table(["Week", "Category", "Event", "Decision and outcome", "Immediate effects", "Quality"], decisionRows, "compact") : '<p class="note">No event decisions were taken.</p>',
+      "Quality ratings are debrief aids: Strong, Sound, Mixed, Weak or Harmful. They reflect the choice in this scenario, not the individual.");
 
     body += section("Debrief: what to take away", '<ul class="list">' + (r.lessons || []).map(function (l) { return "<li>" + esc(l) + "</li>"; }).join("") + "</ul>" +
+      (debriefPrompts ? '<h3>Scenario prompts</h3><ul class="list">' + debriefPrompts + "</ul>" : "") +
       '<div class="callout"><b>Facilitator prompt.</b> Ask each player to name one decision they would reverse, the signal they missed, and the earliest point at which the signal was visible.</div>',
       "Lessons are generated from the actual state of this run, not from a generic script.");
 

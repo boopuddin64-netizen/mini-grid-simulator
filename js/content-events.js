@@ -102,6 +102,7 @@
     },
     {
       id: "grid-encroachment", title: "DisCo announces a grid extension", category: "Regulatory",
+      scenario: "gidan-sama",
       week: { min: 26, max: 40 }, prob: 0.20, once: true,
       text: "The DisCo publishes a 33 kV extension that will reach Gidan Sama within two years. Your mini-grid is still under construction, and the client asks what happens to the asset.",
       context: "This is the structural risk of mini-grids in Nigeria: the grid can arrive after you commit.",
@@ -137,6 +138,7 @@
     },
     {
       id: "scope-change", title: "Client requests 150 extra connections", category: "Client",
+      scenario: "gidan-sama",
       week: { min: 22, max: 36 }, prob: 0.30, once: true,
       text: "KREA asks you to add 150 connections in a nearby settlement. The work is outside the signed scope, but the client's board wants it in the same programme.",
       context: "The LV network design has some spare capacity; the transformer margin is thinner.",

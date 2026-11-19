@@ -96,11 +96,11 @@
 
   C.modelCard = {
     name: "Mini-Grid EPC Simulator — Nigeria Edition",
-    modelVersion: "0.1.0",
+    modelVersion: "0.3.0",
     contentDate: "November 2026",
     owner: "Corporate training / project planning prototype",
     intendedUse:
-      "Facilitator-led training for EPC project directors and planners, and indicative early-stage planning ranges for Nigerian solar mini-grid delivery.",
+      "Facilitator-led training for EPC project directors and planners, and indicative early-stage planning ranges for Nigerian solar mini-grid delivery. Four scenario-specific task networks and a competency-based debrief support cohort training.",
     outOfScope: [
       "Bankable forecasts, bid prices, investment approvals or lender submissions",
       "Site-specific energy yield or structural design",
@@ -108,7 +108,7 @@
       "Individual performance assessment or HR decisions"
     ],
     method:
-      "Deterministic task-network training simulation with event injection, plus a parametric Monte Carlo planning model. Both use explicit assumptions and seeded randomness.",
+      "Deterministic, scenario-specific task-network training simulation with event injection and a competency debrief rubric, plus a parametric Monte Carlo planning model. Both use explicit assumptions and seeded randomness.",
     data:
       "Public benchmarks (ESMAP, IRENA, NREL/NLR, IEA PVPS, LBNL, pvXchange, InfoLink) and documented expert priors. No proprietary company data.",
     validation: {

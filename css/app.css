@@ -144,6 +144,13 @@ p{line-height:1.6}
 
 /* ---------- setup ---------- */
 .setup-wrap{max-width:980px;margin:20px auto}
+.scenario-switch{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 10px;padding:7px 9px;background:var(--surface-3);border:1px solid var(--line);border-radius:10px}
+.scenario-switch>span{font-size:9px;text-transform:uppercase;letter-spacing:.7px;color:var(--dim);margin-right:3px}
+.scenario-switch button{background:transparent;border:1px solid transparent;border-radius:999px;color:var(--muted);font-size:10px;padding:5px 10px;cursor:pointer}
+.scenario-switch button:hover{color:var(--text);border-color:var(--line)}
+.scenario-switch button.on{color:var(--green);border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.08);font-weight:650}
+.focus-chips{display:flex;gap:5px;flex-wrap:wrap;margin:10px 0 2px}
+.focus-chips span{font-size:9px;color:var(--cyan);border:1px solid rgba(56,189,248,.24);background:rgba(56,189,248,.05);border-radius:999px;padding:3px 8px}
 .setup-card{background:linear-gradient(180deg,var(--panel-2),var(--panel));border:1px solid var(--line);border-radius:18px;padding:24px;box-shadow:var(--shadow)}
 .setup-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:22px;margin:18px 0}
 .field{margin-bottom:13px}

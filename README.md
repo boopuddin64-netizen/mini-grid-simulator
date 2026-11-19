@@ -1,13 +1,15 @@
 # Mini-Grid EPC Simulator — Nigeria Edition
 
-**v0.2.0 · November 2026 · static, offline-first**
+**v0.3.0 · November 2026 · static, offline-first**
 
 A build-free web app for corporate training and early-stage project planning of Nigerian
 solar mini-grid EPC delivery. It has two separate models:
 
-- **Training mode** — a deterministic task-network and weekly cash simulation of a
-  500 kWp / 1.2 MWh mini-grid, with staffing, procurement lead times, Nigeria-specific
-  events, live operations, scoring and a facilitator console.
+- **Training mode** — four playable scenario networks covering a 500 kWp / 1.2 MWh
+  mini-grid, an 850 kWp rooftop C&I system, a 2.4 MWh storage retrofit and a 12-site O&M
+  turnaround. Each has its own task network, team subset, milestones, cash curve and
+  Nigeria-specific event set, plus staffing, procurement lead times, live operations,
+  competency review, scoring and a facilitator console.
 - **Planning mode** — a parametric Monte Carlo that returns P10 / P50 / P90 ranges for
   cost, duration, margin and cash low point, with a tornado and an assumption register.
 
@@ -45,20 +47,21 @@ No project or company data is sent anywhere.
 
 ---
 
-## What is in v0.2
+## What is in v0.3
 
 | Area | Included |
 | --- | --- |
 | Delivery phases | Development · Engineering · Procurement · Construction · Commissioning & O&M |
-| Playable scenario | Gidan Sama Mini-Grid, Kaduna State |
-| Preview-only scenarios | Lagos Rooftop C&I, Kano Utility-Scale PV, Port Harcourt Storage Retrofit, Abuja O&M Turnaround |
-| Training content | 35 tasks, 13-person team, 17 events, 9 payment milestones, 3 difficulty levels |
+| Playable scenarios | Gidan Sama Mini-Grid (Kaduna), Lagos Rooftop C&I, Port Harcourt Storage Retrofit, Abuja O&M Turnaround |
+| Preview-only scenario | Kano Utility-Scale PV (50 MWp; no task network yet) |
+| Training content | 4 task networks (35 / 27 / 27 / 25 tasks), 4 team subsets (13 / 10 / 11 / 8 people), 26 events, scenario-specific milestones, 3 difficulty levels |
+| Competency model | 6 competencies rated 1–5, 5-band debrief profile, event-choice rubric and facilitator/self review |
 | Operating conditions | Grid setting, funding stack, community engagement, import route, FX cover, security context |
 | Working sections | Overview · Live ops · Delivery · Procurement · Team · Finance · Risk & compliance · Activity |
 | Interface | Dark / light / system theme, comfortable / compact density, motion preference |
 | Planning model | 2,000 runs by default, seeded, editable assumptions, tornado sensitivity |
-| Outputs | PDF training report, PDF planning analysis, JSON export, scored debrief |
-| Facilitation | Pause, step one week, reveal hidden state, inject an event, add cash |
+| Outputs | PDF training report, PDF planning analysis, JSON export, scored debrief with turning points |
+| Facilitation | Pause, step one week, reveal hidden state, inject an event, add cash, competency review |
 
 ### A clearer working surface
 
@@ -83,17 +86,20 @@ card. It is not part of the project navigation.
 
 ### Training mode
 
-The player runs a fixed-price EPC contract through a weekly cycle:
+The player runs a fixed-price EPC or O&M contract through a weekly cycle:
 
-1. Choose the operating conditions and the team at setup.
+1. Choose one of the four playable Nigerian projects, the operating conditions, the
+   difficulty and the team at setup.
 2. Assign available staff to ready tasks.
 3. Start or staff tasks; long-lead procurement orders run automatically after placement
    (30% deposit, balance on delivery, lead time independent of site progress).
 4. Advance a week. Payroll, task spend, interest, delay damages and supplier progress are
    applied.
 5. Resolve events when they fire. Choices trade cash, schedule, quality, safety,
-   compliance and stakeholder trust.
+   compliance and stakeholder trust; each choice is later rated against a decision rubric.
 6. Certify milestones to release client cash, then complete commissioning and handover.
+7. In the debrief, save a facilitator or self competency review and discuss the turning
+   points, scenario prompts and decision log.
 
 The dashboard shows only what a project team would know: cash, forecast, progress,
 staffing, dependencies, payment status and a project log. The facilitator console can
@@ -105,10 +111,11 @@ restarted or discarded.
 
 **Export.** Two output formats:
 
-- **PDF report** — a print-optimised A4 document with outcome, score, operating
-  conditions, financial summary, delivery performance, milestones, grants, cost ledger,
-  task register, team deployment, Nigeria compliance map, decision log, debrief lessons,
-  risks and calibration sources. The browser print dialog produces the PDF.
+- **PDF report** — a print-optimised A4 document with outcome, scenario focus, score,
+  operating conditions, financial summary, delivery performance, milestones, grants, cost
+  ledger, task register, team deployment, Nigeria compliance map, competency profile,
+  facilitator review, turning points, decision log, debrief lessons, risks and calibration
+  sources. The browser print dialog produces the PDF.
 - **JSON debrief** — the scenario, difficulty, seed, conditions, grants, full state,
   computed report, forecast, calibration statement and disclaimer. Suitable for a
   facilitator archive or post-course review.
@@ -127,9 +134,10 @@ screen:
 | FX cover | Partially covered | Hedged costs upfront and cuts FX shock odds; unhedged keeps full naira exposure |
 | Security | Moderate | Low reduces cost; elevated adds guards and raises schedule/community risk |
 
-Four presets are provided: **Trainer default**, **Community-first**, **Commercial
-squeeze** and **Interconnected edge**. Conditions affect task costs, procurement
-durations, starting stats, event category weighting, grant cash and financing cost.
+Seven presets are provided: **Trainer default**, **Community-first**, **Commercial
+squeeze**, **Interconnected edge**, **Rooftop C&I**, **Live-plant retrofit** and
+**O&M turnaround**. Conditions affect task costs, procurement durations, starting stats,
+event category weighting, grant cash and financing cost.
 
 Grants are paid in verification tranches (two by default, three for the blended stack).
 A grant tranche is cash, not EPC margin, and it arrives only when the trigger is met.
@@ -164,25 +172,40 @@ presents a single-point forecast as a commitment.
 
 ---
 
-## Reference project and difficulty
+## Playable projects and difficulty
 
-**Gidan Sama Mini-Grid** — 500 kWp PV, 1.2 MWh BESS, 1,200 connections, Kaduna State.
-$2.9M contract, 60-week target, 12% target margin, 13-person team, $6,780/week payroll.
-The critical path is 56 weeks, leaving about four weeks of float against the target.
+| Project | Scope | Contract | Target | Margin | Team |
+| --- | --- | --- | --- | --- | --- |
+| Gidan Sama Mini-Grid | 500 kWp PV, 1.2 MWh BESS, 1,200 connections | $2.90M | 60 weeks | 12% | 13 |
+| Lagos Rooftop C&I | 850 kWp rooftop PV, 300 kWh BESS, zero-export | $1.25M | 30 weeks | 14% | 10 |
+| Port Harcourt Storage Retrofit | 2.4 MWh BESS retrofit into an operating 3 MWp plant | $2.65M | 36 weeks | 13% | 11 |
+| Abuja O&M Turnaround | 12-site, 4.8 MWp O&M recovery and service reset | $0.98M | 26 weeks | 17% | 8 |
+
+Each project has its own task network, milestone percentages, milestone lags, evidence
+map, event set, cash factor and default Nigeria conditions preset. The Kano 50 MWp
+utility-scale project remains a locked preview and has no playable task network.
+
+**Gidan Sama Mini-Grid** is the original reference project. The critical path is 56 weeks,
+leaving about four weeks of float against the 60-week target. The other projects are
+shorter, sharper training cases: Lagos tests live-factory access and zero-export sign-off;
+Port Harcourt tests working capital, battery traceability and a live-plant outage window;
+Abuja tests data quality, spares provenance and multi-site O&M recovery.
 
 | Setting | Easy | Normal | Hard |
 | --- | --- | --- | --- |
-| Starting cash | $375,000 | $275,000 | $220,000 |
-| Overdraft limit | $750,000 | $500,000 | $420,000 |
+| Starting cash (Gidan base) | $375,000 | $275,000 | $220,000 |
+| Overdraft limit (Gidan base) | $750,000 | $500,000 | $420,000 |
 | Event severity | 0.72× | 1.00× | 1.30× |
 | Delay damages | $8,000/week | $12,500/week | $18,500/week |
 | Score adjustment | ÷ 0.95 | ÷ 1.00 | ÷ 1.12 |
 
-Conditions adjust starting cash from that base: the neutral Trainer default leaves it
-unchanged, co-design spends $25k, commercial-only adds $300k, security options add or
-subtract small amounts.
+Each scenario applies its own cash factor to the starting cash and overdraft. Conditions
+then adjust starting cash: the neutral Trainer default leaves it unchanged, co-design
+spends $25k, commercial-only adds $300k, security options add or subtract small amounts.
+The setup screen shows the effective cash, overdraft and hard-stop week for the selected
+project and conditions.
 
-### Scoring
+### Scoring and competency
 
 | Dimension | Weight |
 | --- | --- |
@@ -194,10 +217,16 @@ subtract small amounts.
 
 Grades: **S** ≥ 90, **A** ≥ 80, **B** ≥ 70, **C** ≥ 60, **D** ≥ 50, **F** < 50.
 
-Payment milestones: mobilisation 10%, design basis 10%, design freeze 10%, equipment
-delivered 15%, construction 40% certified 20%, mechanical completion 10%, COD 15%,
-handover 5%, retention 5% (released 12 weeks after handover). Certificates clear with a
-1–3 week lag.
+The competency profile is a separate training aid, not part of the delivery score. Six
+competencies — planning and sequencing, commercial and cash discipline, technical
+judgement, HSE and regulatory control, stakeholder and community, decision under
+uncertainty — are rated 1–5 by a facilitator or by self-assessment. Event choices are
+also rated against a decision-quality rubric (strong, sound, mixed, weak, harmful), and
+the debrief highlights the turning points that changed the run.
+
+Payment milestones are scenario-specific. Gidan Sama uses nine client certificates; the
+shorter projects use fewer, with their own lags and retention positions. Certificates
+clear one to three weeks after certification unless the scenario says otherwise.
 
 ---
 
@@ -268,11 +297,12 @@ plausibility check, not validation.
 The two models answer different questions and do not produce the same margin:
 
 - **Planning P50** for the defaults is roughly **8% margin**, with a cash low point near
-  **–$413k**, a **15%** chance of overdraft breach and **53%** chance of finishing late.
-- **Training** outcomes for normal difficulty currently cluster around **0–8% margin**,
-  with overdraft breaches on event-heavy or poorly sequenced seeds. The 12% bid margin
-  is deliberately difficult to retain once payroll, idle weeks, phase-scoped delays,
-  delay damages and event costs are applied.
+  **–$413k**, a **15%** chance of overdraft breach and a **53%** chance of finishing late.
+- **Training** outcomes vary by scenario and play quality. On normal difficulty the four
+  projects currently cluster between roughly **–5% and 13% margin**, with overdraft
+  breaches on event-heavy or poorly sequenced runs. The scenario target margins are
+  deliberately demanding once payroll, idle weeks, phase-scoped delays, delay damages,
+  retention and event costs are applied.
 
 The gap is expected: Planning uses a smoothed S-curve and does not simulate the task
 network, staffing conflicts, idle weeks or the interaction between delays and delay
@@ -282,10 +312,11 @@ version.
 
 ### Event pacing
 
-Random events use an 18% weekly gate with a 4-week cooldown after the previous random
-event. Fixed-date events still fire. A typical run resolves roughly 7–10 events. Event
-effects are scaled by difficulty, and category weights are adjusted by the selected
-operating conditions.
+Random events use a 28% weekly gate with a 3-week cooldown after the previous random
+event. Fixed-date events still fire. A typical longer run resolves roughly 8–12 events.
+Event effects are scaled by difficulty, category weights are adjusted by the selected
+operating conditions, and scenario-specific events are only eligible in their own
+project.
 
 ---
 
@@ -301,7 +332,10 @@ css/planning.css                  planning form and results
 js/content.js                     metadata, phases, team, scenarios, milestones, grades
 js/content-tasks.js               Development, Engineering, Procurement tasks
 js/content-tasks-construction.js  Construction and Commissioning tasks
-js/content-events.js              17 Nigeria events and choice effects
+js/content-scenarios.js           Lagos, Port Harcourt and Abuja task networks, teams, milestones
+js/content-events.js              17 core Nigeria events and choice effects
+js/content-events-scenarios.js    scenario-specific events for the three new projects
+js/content-competencies.js        competency definitions, bands, scale and event rubric
 js/content-data.js                calibration pack, model card, planning defaults
 js/content-nigeria.js             operating conditions, presets, regulatory map, seasons
 js/prefs.js                       local profile, theme, density, motion preferences
@@ -326,30 +360,43 @@ from `index.html`.
 
 ---
 
-## QA status (v0.2.0)
+## QA status (v0.3.0)
 
 Checked in Chromium through the local server:
 
-- Landing, setup, all four condition presets, all six condition dropdowns, difficulty and
-  facilitator setup.
-- Training start, task assignment, weekly advance, completion of a task, save + reload +
-  resume, live ops updates (active work, crew, runway, season, clock).
-- Account/settings screen: all five tabs, profile save, theme switch (dark, light,
-  system), density, motion, data controls and model-card links.
-- Training PDF HTML builds from a live run and from a final report; the A4 document has no
-  table overflow, no `undefined`/`NaN` values and all twelve sections render.
-- Final report screen with grade, score breakdown, financial summary and PDF actions.
-- Planning form, 2,000-run simulation, results, PDF analysis and JSON payload; the A4
-  planning document has no table overflow.
-- Every `js/*.js` file compiles without syntax errors; the browser console is clean
-  during the checks.
+- Landing, setup and all four playable projects, including project switching, default
+  condition presets, effective starting cash, overdraft, team subset, exercises, focus
+  chips and hard-stop week.
+- Lagos training start, task assignment and start, weekly advance, event injection,
+  event choice and outcome, report generation, competency review save and report rebuild.
+- Port Harcourt and Abuja setup defaults; the model's PH preset now starts with commercial
+  mobilisation cash because the battery order is working-capital intensive.
+- Completed Lagos run: grade B, 27/27 tasks, 4 rated events, 5 turning points, 6 competency
+  cards and scenario prompts; the report and PDF HTML contain no `undefined` or `NaN`.
+- Completed Port Harcourt run: grade B, 27/27 tasks, 6 competency cards, 5 turning points
+  and 4 rated decisions. Completed Abuja run: grade A, 25/25 tasks. Both reports and PDF
+  HTML build cleanly with scenario-specific debrief prompts.
+- Competency review stores ratings, note and reviewer locally, re-renders the report and
+  preserves the selected values.
+- Planning form, 2,000-run simulation, results and PDF HTML; the A4 planning document has
+  no table overflow.
+- JSON export parses, carries version `0.3.0` and includes the scenario, condition labels,
+  full state, report and forecast.
+- Mobile layout at a 390 px viewport: landing, setup, game dashboard, planning results and
+  final report have no page-level horizontal overflow. The game section rail scrolls
+  horizontally by design.
+- Light and dark themes; the browser console stayed clean during the checks.
+- Content validation: all scenario task IDs, dependencies, roles, order options, milestone
+  triggers and percentages, event-condition task IDs and event rubric entries are valid;
+  no duplicate IDs; no missing team-role capacity.
+- All 19 `js/*.js` files pass `node --check`.
 
 Known gaps:
 
-- No independent Node syntax pass was possible in the build environment; syntax was
-  checked by compiling each file in the browser with `new Function(source)`.
+- Kano Utility-Scale PV is still a locked preview with no playable task network.
 - Training and Planning margins differ as described above.
-- Only Gidan Sama is playable; the other four scenarios are visible previews.
+- Scenario cash curves are calibrated to be demanding, not to a bankable cash-flow model.
+  Port Harcourt and Gidan Sama are the most sensitive to early ordering and idle labour.
 - PDF export depends on the browser print dialog. Pop-up blocking must be allowed.
 - No authentication, server storage, multi-user cohort dashboard or LMS integration.
 - No PWA/offline-install manifest, desktop installer or mobile store package yet. The app
